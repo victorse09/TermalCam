@@ -1,0 +1,209 @@
+"""
+ThermalCam Analyzer — Diálogos de Proyecto e Instrumento
+Maneja la edición de metadatos globales del proyecto y la cámara térmica.
+"""
+
+import os
+from datetime import datetime
+from PyQt6.QtCore import Qt, QDate, QTime
+from PyQt6.QtWidgets import (
+    QDialog, QVBoxLayout, QHBoxLayout, QGroupBox,
+    QLabel, QLineEdit, QDoubleSpinBox, QPushButton,
+    QFileDialog, QFormLayout, QToolButton, QDateEdit, QTimeEdit
+)
+
+
+class ProjectInfoDialog(QDialog):
+    """Diálogo para configurar y guardar la información general del proyecto."""
+
+    def __init__(self, info: dict, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Información del Proyecto")
+        self.setMinimumSize(450, 480)
+        self.info = info.copy()  # Copia local de trabajo
+        self._setup_ui()
+
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+
+        # Grupo: Información del informe
+        info_group = QGroupBox("Detalles del Proyecto y Cliente")
+        form = QFormLayout(info_group)
+        form.setSpacing(10)
+
+        self.edit_title = QLineEdit(self.info.get("title", "Informe de Análisis Térmico"))
+        self.edit_title.setPlaceholderText("Título del informe")
+        form.addRow("Título:", self.edit_title)
+
+        self.edit_author = QLineEdit(self.info.get("author", ""))
+        self.edit_author.setPlaceholderText("Nombre del autor/analista")
+        form.addRow("Autor/Analista:", self.edit_author)
+
+        self.edit_project = QLineEdit(self.info.get("project_name", ""))
+        self.edit_project.setPlaceholderText("Nombre del proyecto o instalación")
+        form.addRow("Proyecto:", self.edit_project)
+
+        self.edit_location = QLineEdit(self.info.get("location", ""))
+        self.edit_location.setPlaceholderText("Ubicación física")
+        form.addRow("Ubicación:", self.edit_location)
+
+        self.edit_client = QLineEdit(self.info.get("client", ""))
+        self.edit_client.setPlaceholderText("Nombre de la empresa o cliente")
+        form.addRow("Cliente/Equipo:", self.edit_client)
+
+        # Campos de Fecha y Hora
+        self.edit_date = QDateEdit()
+        self.edit_date.setCalendarPopup(True)
+        date_str = self.info.get("date", "")
+        if date_str:
+            self.edit_date.setDate(QDate.fromString(date_str, Qt.DateFormat.ISODate))
+        else:
+            self.edit_date.setDate(QDate.currentDate())
+        form.addRow("Fecha Medición:", self.edit_date)
+
+        self.edit_time = QTimeEdit()
+        time_str = self.info.get("time", "")
+        if time_str:
+            self.edit_time.setTime(QTime.fromString(time_str, Qt.DateFormat.ISODate))
+        else:
+            self.edit_time.setTime(QTime.currentTime())
+        form.addRow("Hora Medición:", self.edit_time)
+
+        # Temperatura ambiente
+        self.spin_temp = QDoubleSpinBox()
+        self.spin_temp.setRange(-40.0, 80.0)
+        self.spin_temp.setDecimals(1)
+        self.spin_temp.setSuffix(" °C")
+        try:
+            self.spin_temp.setValue(float(self.info.get("ambient_temp", 20.0)))
+        except:
+            self.spin_temp.setValue(20.0)
+        form.addRow("Temp. Ambiente:", self.spin_temp)
+
+        # Logotipo
+        logo_layout = QHBoxLayout()
+        self.edit_logo = QLineEdit(self.info.get("logo_path", ""))
+        self.edit_logo.setPlaceholderText("Ruta del logo de la empresa (opcional)")
+        btn_logo = QToolButton()
+        btn_logo.setText("...")
+        btn_logo.clicked.connect(lambda: self._browse_file(self.edit_logo, "Seleccionar Logotipo"))
+        logo_layout.addWidget(self.edit_logo)
+        logo_layout.addWidget(btn_logo)
+        form.addRow("Logo Empresa:", logo_layout)
+
+        # Imagen del equipo (óptica)
+        equip_layout = QHBoxLayout()
+        self.edit_equip = QLineEdit(self.info.get("equipment_image_path", ""))
+        self.edit_equip.setPlaceholderText("Foto óptica del equipo bajo análisis (opcional)")
+        btn_equip = QToolButton()
+        btn_equip.setText("...")
+        btn_equip.clicked.connect(lambda: self._browse_file(self.edit_equip, "Seleccionar Foto del Equipo"))
+        equip_layout.addWidget(self.edit_equip)
+        equip_layout.addWidget(btn_equip)
+        form.addRow("Imagen Equipo:", equip_layout)
+
+        layout.addWidget(info_group)
+
+        # Botones
+        btn_layout = QHBoxLayout()
+        self.btn_save = QPushButton("Guardar Cambios")
+        self.btn_save.setObjectName("btnPrimary")
+        self.btn_save.setMinimumHeight(35)
+        self.btn_save.clicked.connect(self._save_data)
+
+        self.btn_cancel = QPushButton("Cancelar")
+        self.btn_cancel.clicked.connect(self.reject)
+
+        btn_layout.addWidget(self.btn_cancel)
+        btn_layout.addWidget(self.btn_save)
+        layout.addLayout(btn_layout)
+
+        # Estilo de inputs
+        if parent := self.parent():
+            if hasattr(parent, 'styleSheet'):
+                self.setStyleSheet(parent.styleSheet())
+
+    def _browse_file(self, line_edit: QLineEdit, title: str):
+        """Abre un diálogo de búsqueda de archivos para imágenes."""
+        filepath, _ = QFileDialog.getOpenFileName(
+            self, title, "",
+            "Imágenes (*.png *.jpg *.jpeg *.bmp);;Todos (*)"
+        )
+        if filepath:
+            line_edit.setText(filepath)
+
+    def _save_data(self):
+        """Valida y guarda las entradas en el diccionario de información."""
+        self.info["title"] = self.edit_title.text()
+        self.info["author"] = self.edit_author.text()
+        self.info["project_name"] = self.edit_project.text()
+        self.info["location"] = self.edit_location.text()
+        self.info["client"] = self.edit_client.text()
+        self.info["date"] = self.edit_date.date().toString(Qt.DateFormat.ISODate)
+        self.info["time"] = self.edit_time.time().toString(Qt.DateFormat.ISODate)
+        self.info["ambient_temp"] = self.spin_temp.value()
+        self.info["logo_path"] = self.edit_logo.text()
+        self.info["equipment_image_path"] = self.edit_equip.text()
+
+        self.accept()
+
+
+class InstrumentInfoDialog(QDialog):
+    """Diálogo para configurar y guardar la información del instrumento termográfico."""
+
+    def __init__(self, info: dict, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Instrumento de Medición")
+        self.setMinimumSize(380, 240)
+        self.info = info.copy()  # Copia local de trabajo
+        self._setup_ui()
+
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+
+        # Grupo: Detalles de la cámara
+        cam_group = QGroupBox("Datos de la Cámara Térmica")
+        form = QFormLayout(cam_group)
+        form.setSpacing(10)
+
+        self.edit_brand = QLineEdit(self.info.get("brand", "Mastfuyi"))
+        self.edit_brand.setPlaceholderText("Ej: Mastfuyi")
+        form.addRow("Marca:", self.edit_brand)
+
+        self.edit_model = QLineEdit(self.info.get("model", ""))
+        self.edit_model.setPlaceholderText("Ej: FY8300")
+        form.addRow("Modelo:", self.edit_model)
+
+        self.edit_serial = QLineEdit(self.info.get("serial_number", ""))
+        self.edit_serial.setPlaceholderText("Número de serie único")
+        form.addRow("Nº de Serie:", self.edit_serial)
+
+        layout.addWidget(cam_group)
+
+        # Botones
+        btn_layout = QHBoxLayout()
+        self.btn_save = QPushButton("Guardar Instrumento")
+        self.btn_save.setObjectName("btnPrimary")
+        self.btn_save.setMinimumHeight(35)
+        self.btn_save.clicked.connect(self._save_data)
+
+        self.btn_cancel = QPushButton("Cancelar")
+        self.btn_cancel.clicked.connect(self.reject)
+
+        btn_layout.addWidget(self.btn_cancel)
+        btn_layout.addWidget(self.btn_save)
+        layout.addLayout(btn_layout)
+
+        if parent := self.parent():
+            if hasattr(parent, 'styleSheet'):
+                self.setStyleSheet(parent.styleSheet())
+
+    def _save_data(self):
+        """Guarda la información de la cámara."""
+        self.info["brand"] = self.edit_brand.text()
+        self.info["model"] = self.edit_model.text()
+        self.info["serial_number"] = self.edit_serial.text()
+
+        self.accept()
