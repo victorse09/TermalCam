@@ -12,7 +12,8 @@ from PyQt6.QtGui import QFont, QColor
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGroupBox,
     QLabel, QTextEdit, QPushButton, QFileDialog,
-    QMessageBox, QCheckBox, QFormLayout, QTableWidget, QTableWidgetItem
+    QMessageBox, QCheckBox, QFormLayout, QTableWidget, QTableWidgetItem,
+    QComboBox
 )
 from .thermal_analyzer import ThermalPoint, ThermalAnalyzer
 from .image_viewer import AnnotationItem
@@ -93,6 +94,23 @@ class ReportDialog(QDialog):
 
         layout.addWidget(content_group)
 
+        # 3. Formato de Página
+        format_group = QGroupBox("Formato de Página")
+        format_layout = QHBoxLayout(format_group)
+        format_layout.setContentsMargins(10, 8, 10, 8)
+        
+        lbl_format = QLabel("Tamaño de Papel:")
+        lbl_format.setStyleSheet("font-weight: bold; color: #a0a0b0;")
+        format_layout.addWidget(lbl_format)
+        
+        self.combo_format = QComboBox()
+        self.combo_format.addItem("A4 (Estándar - 210x297 mm)", "a4")
+        self.combo_format.addItem("Carta (Letter - 215.9x279.4 mm)", "letter")
+        self.combo_format.addItem("Oficio (Legal - 215.9x355.6 mm)", "legal")
+        format_layout.addWidget(self.combo_format)
+        
+        layout.addWidget(format_group)
+
         # Botones de Acción
         btn_layout = QHBoxLayout()
         self.btn_generate = QPushButton("Generar Informe PDF")
@@ -138,7 +156,7 @@ class ReportDialog(QDialog):
             return
 
         try:
-            self._build_pdf(filepath)
+            self._build_pdf(filepath, self.combo_format.currentData())
             QMessageBox.information(
                 self, "Éxito",
                 f"Informe multipágina generado exitosamente:\n{filepath}")
@@ -148,12 +166,33 @@ class ReportDialog(QDialog):
                 self, "Error",
                 f"Error al generar el informe consolidado:\n{str(e)}")
 
-    def _build_pdf(self, filepath: str):
+    def _build_pdf(self, filepath: str, format_str: str = "a4"):
         """Construye el PDF multipágina usando FPDF2."""
         from fpdf import FPDF
         from PIL import Image
 
-        pdf = FPDF()
+        class ThermalReportPDF(FPDF):
+            def __init__(self, project_info: dict, version_str: str = "v1.1", has_cover: bool = True, format_val: str = "a4"):
+                super().__init__(format=format_val)
+                self._project_info = project_info
+                self.version_str = version_str
+                self.has_cover = has_cover
+
+            def footer(self):
+                self.set_y(-15)
+                self.set_draw_color(200, 200, 210)
+                self.line(10, self.get_y(), self.w - 10, self.get_y())
+                self.ln(2)
+                
+                self.set_font("Helvetica", "I", 8)
+                self.set_text_color(120, 120, 140)
+                
+                # Nombre de la suite + versión v1.1
+                self.cell(self.w - 40, 5, f"ThermalCam Analyzer - Suite de Inspección Multi-Medición {self.version_str}", align='L')
+                # Número de página sin fecha
+                self.cell(0, 5, f"Página {self.page_no()}", align='R')
+
+        pdf = ThermalReportPDF(self._project_info, version_str="v1.1", has_cover=self.chk_cover.isChecked(), format_val=format_str)
         pdf.set_auto_page_break(auto=True, margin=15)
         
         # Archivos temporales para limpiar al final
@@ -163,13 +202,13 @@ class ReportDialog(QDialog):
         if self.chk_cover.isChecked():
             pdf.add_page()
             
-            # Encabezado corporativo premium (Bloque superior azul oscuro)
+            # Encabezado corporativo premium (Bloque superior azul oscuro más angosto)
             pdf.set_fill_color(22, 22, 40)
-            pdf.rect(0, 0, 210, 85, 'F')
+            pdf.rect(0, 0, pdf.w, 65, 'F')
             
             # Dibujar línea naranja decorativa
             pdf.set_fill_color(255, 107, 53)
-            pdf.rect(0, 85, 210, 4, 'F')
+            pdf.rect(0, 65, pdf.w, 4, 'F')
 
             # Renderizar logotipo si existe
             logo_path = self._project_info.get("logo_path", "")
@@ -191,15 +230,15 @@ class ReportDialog(QDialog):
             pdf.cell(0, 8, "Inspección Termográfica Cuantitativa de Alta Resolución",
                      align='L', new_x="LMARGIN", new_y="NEXT")
 
-            # Espaciado para el bloque de metadatos
-            pdf.set_y(100)
+            # Espaciado para el bloque de metadatos (ajustado hacia arriba por el encabezado angosto)
+            pdf.set_y(78)
             pdf.set_text_color(40, 40, 50)
             
             pdf.set_font("Helvetica", "B", 14)
             pdf.set_text_color(255, 107, 53)
             pdf.cell(0, 10, "Detalles del Informe y Cliente", new_x="LMARGIN", new_y="NEXT")
             pdf.set_draw_color(255, 107, 53)
-            pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+            pdf.line(10, pdf.get_y(), pdf.w - 10, pdf.get_y())
             pdf.ln(6)
 
             # Tabla de metadatos en portada
@@ -214,6 +253,7 @@ class ReportDialog(QDialog):
                 ("Fecha de Medición:", self._project_info.get("date", "---")),
                 ("Hora de Medición:", self._project_info.get("time", "---")),
                 ("Temp. Ambiente:", f"{self._project_info.get('ambient_temp', 20.0):.1f} °C"),
+                ("Informe:", self._project_info.get("report_number", "---")),
             ]
             
             for label, val in metadata_rows:
@@ -238,7 +278,7 @@ class ReportDialog(QDialog):
                     img_w = min(110, 190)
                     img_h = img_w * h / w
                     
-                    pdf.image(equip_path, x=50, w=img_w, h=img_h)
+                    pdf.image(equip_path, x=(pdf.w - img_w) / 2, w=img_w, h=img_h)
                 except Exception as e:
                     print(f"Error cargando imagen del equipo en portada: {e}")
 
@@ -254,7 +294,7 @@ class ReportDialog(QDialog):
             pdf.set_text_color(255, 107, 53)
             pdf.cell(0, 8, "Especificaciones de la Cámara Térmica", new_x="LMARGIN", new_y="NEXT")
             pdf.set_draw_color(255, 107, 53)
-            pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+            pdf.line(10, pdf.get_y(), pdf.w - 10, pdf.get_y())
             pdf.ln(4)
 
             pdf.set_font("Helvetica", "B", 10)
@@ -277,7 +317,7 @@ class ReportDialog(QDialog):
             pdf.set_text_color(255, 107, 53)
             pdf.cell(0, 8, "Índice de Mediciones del Proyecto", new_x="LMARGIN", new_y="NEXT")
             pdf.set_draw_color(255, 107, 53)
-            pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+            pdf.line(10, pdf.get_y(), pdf.w - 10, pdf.get_y())
             pdf.ln(4)
 
             # Header tabla resumen
@@ -310,11 +350,26 @@ class ReportDialog(QDialog):
                     pdf.cell(w, 7, val, border=1, align='C')
                 pdf.ln()
 
-            self._write_page_footer(pdf)
+            # Observaciones Generales del Proyecto
+            general_obs = self._project_info.get("general_observations", "").strip()
+            if general_obs:
+                pdf.ln(4)
+                pdf.set_font("Helvetica", "B", 13)
+                pdf.set_text_color(255, 107, 53)
+                pdf.cell(0, 8, "Observaciones Generales del Proyecto", new_x="LMARGIN", new_y="NEXT")
+                pdf.set_draw_color(255, 107, 53)
+                pdf.line(10, pdf.get_y(), pdf.w - 10, pdf.get_y())
+                pdf.ln(4)
+
+                pdf.set_font("Helvetica", "", 10)
+                pdf.set_text_color(40, 40, 50)
+                pdf.multi_cell(0, 6, general_obs)
 
         # ── 3. DETALLE POR MEDICIÓN ─────────────────────────────────────────
+        fig_counter = 1
         valid_meas = [m for m in self._measurements if m.get("original_image") is not None]
         for idx, m in enumerate(valid_meas):
+            obs_printed = False
             pdf.add_page()
             
             # Encabezado
@@ -325,7 +380,7 @@ class ReportDialog(QDialog):
             pdf.set_text_color(255, 107, 53)
             pdf.cell(0, 6, "Parámetros Técnicos de Medición", new_x="LMARGIN", new_y="NEXT")
             pdf.set_draw_color(255, 107, 53)
-            pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+            pdf.line(10, pdf.get_y(), pdf.w - 10, pdf.get_y())
             pdf.ln(3)
 
             pdf.set_font("Helvetica", "B", 9)
@@ -346,7 +401,7 @@ class ReportDialog(QDialog):
             pdf.cell(0, 5, cal_range, new_x="LMARGIN", new_y="NEXT")
             pdf.ln(4)
 
-            # IMÁGENES LADO A LADO (Térmica original vs Foto real óptica)
+            # IMÁGENES APILADAS Y CENTRADAS (Térmica original vs Foto real óptica)
             y_before_images = pdf.get_y()
             
             # Cargar imagen térmica original
@@ -358,48 +413,67 @@ class ReportDialog(QDialog):
                 pdf.set_text_color(255, 107, 53)
                 pdf.cell(0, 6, "Referencias Visuales de Campo", new_x="LMARGIN", new_y="NEXT")
                 pdf.set_draw_color(255, 107, 53)
-                pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-                pdf.ln(3)
+                pdf.line(10, pdf.get_y(), pdf.w - 10, pdf.get_y())
+                pdf.ln(4)
 
-                img_w = 90
-                # Si tenemos ambas, las dibujamos lado a lado
+                # Si tenemos ambas, las dibujamos apiladas verticalmente y centradas
                 if has_orig and has_real:
-                    # Guardar térmica temporal
+                    img_w = 75
+                    x_pos = (pdf.w - img_w) / 2
+                    
+                    # 1. Imagen térmica original
                     tmp_t = self._save_temp_image(m["original_image"], f"orig_{idx}")
                     tmp_files.append(tmp_t)
-                    pdf.image(tmp_t, x=12, w=img_w, h=img_w) # Térmicas de Mastfuyi son cuadradas 240x240
+                    pdf.image(tmp_t, x=x_pos, w=img_w, h=img_w)
+                    pdf.ln(1.5) # FPDF2 ya avanzó y por el alto, solo bajamos 1.5mm para el texto
+                    pdf.set_font("Helvetica", "I", 9)
+                    pdf.set_text_color(100, 100, 110)
+                    pdf.cell(0, 4, f"Fig {fig_counter} : Imagen Termográfica", align='C', new_x="LMARGIN", new_y="NEXT")
+                    fig_counter += 1
+                    pdf.ln(1.5)
                     
-                    # Dibujar real
+                    # 2. Imagen real visible
                     try:
-                        # Para que queden al mismo nivel y cuadradas, recortamos/escalamos la real a un contenedor cuadrado
-                        pdf.image(m["real_image_path"], x=108, w=img_w, h=img_w)
+                        with Image.open(m["real_image_path"]) as img:
+                            w, h = img.size
+                        real_h = img_w * h / w
+                        if real_h > 75:
+                            real_h = 75
+                        
+                        pdf.image(m["real_image_path"], x=x_pos, w=img_w, h=real_h)
+                        pdf.ln(1.5) # FPDF2 ya avanzó y por el alto, solo bajamos 1.5mm para el texto
+                        pdf.set_font("Helvetica", "I", 9)
+                        pdf.set_text_color(100, 100, 110)
+                        pdf.cell(0, 4, f"Fig {fig_counter} : Imagen Real", align='C', new_x="LMARGIN", new_y="NEXT")
+                        fig_counter += 1
+                        pdf.ln(2)
                     except Exception as e:
                         print(f"Error cargando foto real: {e}")
-                    
-                    pdf.ln(img_w + 2)
-                    pdf.set_font("Helvetica", "I", 8)
-                    pdf.set_text_color(100, 100, 110)
-                    pdf.cell(96, 5, "Fig 1: Imagen Térmica Original (240x240px)", align='C')
-                    pdf.cell(96, 5, "Fig 2: Fotografía Óptica del Lugar", align='C', new_x="LMARGIN", new_y="NEXT")
-                    pdf.ln(2)
                 else:
                     # Dibujar solo la que esté disponible al centro
+                    img_w = 90
+                    x_pos = (pdf.w - img_w) / 2
                     if has_orig:
                         tmp_t = self._save_temp_image(m["original_image"], f"orig_{idx}")
                         tmp_files.append(tmp_t)
-                        pdf.image(tmp_t, x=60, w=90, h=90)
-                        pdf.ln(92)
-                        pdf.set_font("Helvetica", "I", 8)
+                        pdf.image(tmp_t, x=x_pos, w=img_w, h=img_w)
+                        pdf.ln(1.5) # FPDF2 ya avanzó y por el alto, solo bajamos 1.5mm para el texto
+                        pdf.set_font("Helvetica", "I", 9)
                         pdf.set_text_color(100, 100, 110)
-                        pdf.cell(0, 5, "Fig 1: Imagen Térmica Original (240x240px)", align='C', new_x="LMARGIN", new_y="NEXT")
+                        pdf.cell(0, 4, f"Fig {fig_counter} : Imagen Termográfica", align='C', new_x="LMARGIN", new_y="NEXT")
+                        fig_counter += 1
                         pdf.ln(2)
                     elif has_real:
                         try:
-                            pdf.image(m["real_image_path"], x=60, w=90, h=90)
-                            pdf.ln(92)
-                            pdf.set_font("Helvetica", "I", 8)
+                            with Image.open(m["real_image_path"]) as img:
+                                w, h = img.size
+                            real_h = img_w * h / w
+                            pdf.image(m["real_image_path"], x=x_pos, w=img_w, h=real_h)
+                            pdf.ln(1.5) # FPDF2 ya avanzó y por el alto, solo bajamos 1.5mm para el texto
+                            pdf.set_font("Helvetica", "I", 9)
                             pdf.set_text_color(100, 100, 110)
-                            pdf.cell(0, 5, "Fig 2: Fotografía Óptica del Lugar", align='C', new_x="LMARGIN", new_y="NEXT")
+                            pdf.cell(0, 4, f"Fig {fig_counter} : Imagen Real", align='C', new_x="LMARGIN", new_y="NEXT")
+                            fig_counter += 1
                             pdf.ln(2)
                         except Exception as e:
                             print(f"Error cargando foto real: {e}")
@@ -414,7 +488,7 @@ class ReportDialog(QDialog):
                 pdf.set_text_color(255, 107, 53)
                 pdf.cell(0, 6, "Termografía Escalada con Marcadores de Medición", new_x="LMARGIN", new_y="NEXT")
                 pdf.set_draw_color(255, 107, 53)
-                pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+                pdf.line(10, pdf.get_y(), pdf.w - 10, pdf.get_y())
                 pdf.ln(4)
 
                 # Renderizar dibujos y puntos directamente sobre la imagen escalada activa
@@ -434,15 +508,33 @@ class ReportDialog(QDialog):
                 # Dibujar al centro
                 w_disp = 120
                 h_disp = w_disp * ch / cw
-                pdf.image(tmp_up, x=45, w=w_disp, h=h_disp)
-                pdf.ln(h_disp + 2)
+                pdf.image(tmp_up, x=(pdf.w - w_disp) / 2, w=w_disp, h=h_disp)
+                pdf.ln(1.5) # FPDF2 ya avanzó y por el alto, solo bajamos 1.5mm para el texto
                 
                 pdf.set_font("Helvetica", "I", 8)
                 pdf.set_text_color(100, 100, 110)
                 method_used = m["settings"]["upscale_method"]
                 factor_used = m["settings"]["upscale_factor"]
-                pdf.cell(0, 5, f"Fig 3: Imagen con Super-resolución ({method_used} {factor_used}) - {cw}x{ch} px", align='C', new_x="LMARGIN", new_y="NEXT")
+                pdf.cell(0, 4, f"Fig {fig_counter} : Imagen con Super-resolución ({method_used} {factor_used}) - {cw}x{ch} px", align='C', new_x="LMARGIN", new_y="NEXT")
+                fig_counter += 1
                 pdf.ln(4)
+
+                # OBSERVACIONES (Añadido abajo de la imagen en la misma página del análisis gráfico)
+                obs_text = m["observations"].strip()
+                if obs_text:
+                    pdf.ln(2)
+                    pdf.set_font("Helvetica", "B", 11)
+                    pdf.set_text_color(255, 107, 53)
+                    pdf.cell(0, 6, "Observaciones y Notas de Inspección de Campo", new_x="LMARGIN", new_y="NEXT")
+                    pdf.set_draw_color(255, 107, 53)
+                    pdf.line(10, pdf.get_y(), pdf.w - 10, pdf.get_y())
+                    pdf.ln(4)
+
+                    pdf.set_font("Helvetica", "", 10)
+                    pdf.set_text_color(40, 40, 50)
+                    pdf.multi_cell(0, 5, obs_text)
+                    pdf.ln(4)
+                    obs_printed = True
 
             # TABLA DE PUNTOS MEDIDOS
             if self.chk_points.isChecked() and m["points"]:
@@ -455,7 +547,7 @@ class ReportDialog(QDialog):
                 pdf.set_text_color(255, 107, 53)
                 pdf.cell(0, 6, f"Tabla de Puntos de Temperatura Medidos ({len(m['points'])} puntos)", new_x="LMARGIN", new_y="NEXT")
                 pdf.set_draw_color(255, 107, 53)
-                pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+                pdf.line(10, pdf.get_y(), pdf.w - 10, pdf.get_y())
                 pdf.ln(4)
 
                 col_widths_pt = [20, 25, 25, 45, 35, 40]
@@ -503,7 +595,7 @@ class ReportDialog(QDialog):
                 pdf.set_text_color(255, 107, 53)
                 pdf.cell(0, 6, "Distribución y Frecuencia de Intensidad Térmica (Histograma)", new_x="LMARGIN", new_y="NEXT")
                 pdf.set_draw_color(255, 107, 53)
-                pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+                pdf.line(10, pdf.get_y(), pdf.w - 10, pdf.get_y())
                 pdf.ln(4)
 
                 tmp_hist = os.path.join(tempfile.gettempdir(), f"temp_{idx}_hist.png")
@@ -511,12 +603,13 @@ class ReportDialog(QDialog):
                 self._histogram_widget.save_histogram_for_data(tmp_hist, m["current_image"], m["points"], dpi=120)
                 tmp_files.append(tmp_hist)
 
-                pdf.image(tmp_hist, x=25, w=160, h=65)
-                pdf.ln(68)
+                # Reducir a la mitad la altura del histograma en el PDF y centrar dinámicamente
+                pdf.image(tmp_hist, x=(pdf.w - 160) / 2, w=160, h=32.5)
+                pdf.ln(3.0) # FPDF2 ya avanzó y por el alto, solo bajamos 3mm para la separación
 
-            # OBSERVACIONES
+            # OBSERVACIONES (Si no se imprimieron antes, por ejemplo si chk_upscaled estaba desactivado)
             obs_text = m["observations"].strip()
-            if obs_text:
+            if obs_text and not obs_printed:
                 if pdf.get_y() > 210:
                     pdf.add_page()
                     self._write_page_header(pdf, f"Medición {idx + 1} - Observaciones")
@@ -525,15 +618,13 @@ class ReportDialog(QDialog):
                 pdf.set_text_color(255, 107, 53)
                 pdf.cell(0, 6, "Observaciones y Notas de Inspección de Campo", new_x="LMARGIN", new_y="NEXT")
                 pdf.set_draw_color(255, 107, 53)
-                pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+                pdf.line(10, pdf.get_y(), pdf.w - 10, pdf.get_y())
                 pdf.ln(4)
 
                 pdf.set_font("Helvetica", "", 10)
                 pdf.set_text_color(40, 40, 50)
                 pdf.multi_cell(0, 6, obs_text)
                 pdf.ln(4)
-
-            self._write_page_footer(pdf)
 
         # ── 4. EXPORTAR PDF FINAL ───────────────────────────────────────────
         pdf.output(filepath)
@@ -549,10 +640,10 @@ class ReportDialog(QDialog):
     def _write_page_header(self, pdf, section_title: str):
         """Dibuja un encabezado estandarizado en la parte superior de cada página de reporte."""
         pdf.set_fill_color(22, 22, 40)
-        pdf.rect(0, 0, 210, 22, 'F')
+        pdf.rect(0, 0, pdf.w, 22, 'F')
         
         pdf.set_fill_color(255, 107, 53)
-        pdf.rect(0, 22, 210, 1.5, 'F')
+        pdf.rect(0, 22, pdf.w, 1.5, 'F')
 
         # Logotipo a escala en esquina
         logo_path = self._project_info.get("logo_path", "")
@@ -568,20 +659,6 @@ class ReportDialog(QDialog):
         pdf.cell(0, 8, section_title, align='R')
         pdf.set_y(28)
         pdf.ln(2)
-
-    def _write_page_footer(self, pdf):
-        """Dibuja un pie de página estandarizado en la parte inferior de la página activa."""
-        pdf.set_y(-22)
-        pdf.set_draw_color(200, 200, 210)
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-        pdf.ln(2)
-        
-        pdf.set_font("Helvetica", "I", 8)
-        pdf.set_text_color(120, 120, 140)
-        
-        date_str = datetime.now().strftime("%d/%m/%Y")
-        pdf.cell(90, 5, "ThermalCam Analyzer - Suite de Inspección Multi-Medición", align='L')
-        pdf.cell(0, 5, f"Fecha Reporte: {date_str}  |  Página {pdf.page_no()}", align='R')
 
     def _save_temp_image(self, image_rgb: np.ndarray, prefix: str) -> str:
         """Guarda un array de imagen temporal como archivo PNG para insertar en el PDF."""

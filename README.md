@@ -1,5 +1,7 @@
 # 📸 ThermalCam Analyzer v2.0
 
+![ThermalCam Analyzer Screenshot](screenshot.png)
+
 **ThermalCam Analyzer** es un software profesional de escritorio, multiplataforma, desarrollado en Python y PyQt6, diseñado específicamente para la decodificación, visualización interactiva, análisis térmico cuantitativo y mejora de resolución por Inteligencia Artificial (Súper-Resolución) de imágenes capturadas con cámaras termográficas (como la serie **Mastfuyi** y compatibles).
 
 La **Versión 2.0** introduce el revolucionario formato de archivo de proyectos unificado `.tcp` multi-medición, un panel avanzado de control de instrumentación, soporte optimizado para redes neuronales de súper-resolución y un generador de informes técnicos en PDF de alta fidelidad.
@@ -34,11 +36,16 @@ La **Versión 2.0** introduce el revolucionario formato de archivo de proyectos 
 
 ### 6. 🛠️ Control de Instrumentación e Información de Proyecto
 * **Ficha Técnica de Cámara**: Menú dedicado para registrar Marca, Modelo y Número de Serie de la cámara termográfica utilizada.
-* **Metadatos de Auditoría**: Permite ingresar Título, Autor, Cliente, Ubicación e Imagen Real del Equipo analizado, almacenándolos directamente dentro del archivo de proyecto `.tcp`.
+* **Metadatos de Auditoría**: Permite ingresar Título, Autor, Cliente, Ubicación, e Imagen de Equipo analizado, almacenándolos directamente dentro del archivo de proyecto `.tcp`.
+* **Identificador de Auditoría**: Campo dedicado para registrar el número o código único del **"Informe:"**, facilitando la trazabilidad administrativa.
+* **Observaciones del Proyecto**: Diálogo de texto multilínea para consignar las observaciones, alcances y comentarios generales de la inspección de manera global.
 
 ### 7. 📄 Generador de Informes PDF de Alta Fidelidad
 * **Estructura Multicapa**: Reportes multipágina de diseño limpio con cabecera corporativa, logotipo dinámico, y datos técnicos de auditoría e instrumentos.
-* **Comparativas Visuales**: Incluye en el PDF la imagen térmica original (limpia) y la térmica escalada de alta resolución (con todas las anotaciones y marcas del inspector) una al lado de la otra o apiladas.
+* **Numeración Correlativa de Figuras**: Sistema dinámico que numera de forma consecutiva todas las figuras del reporte técnico (`Fig 1 : Imagen Termográfica`, `Fig 2 : Imagen Real`, `Fig 3 : Imagen con Super-resolución...`), evitando repeticiones y ofreciendo un informe formal.
+* **Páginas e Imágenes Snug**: Layout de imágenes centrado y apilado con pies de imagen ceñidos estrictamente a la base mediante espaciados precisos de 1.5mm y 3.0mm, garantizando un acabado premium libre de grandes espacios vacíos.
+* **Formatos de Página Ajustables**: Selector interactivo de tamaño de papel (**A4**, **Carta / Letter**, **Oficio / Legal**) con recalculado matemático dinámico de encabezados, líneas separadoras y márgenes usando `pdf.w`.
+* **Pies de Página Automatizados**: Inserción constante del pie de página de la suite y número de página en *todas* las hojas (incluyendo la portada de forma uniforme).
 * **Foto de Campo Real**: Espacio dedicado para agregar opcionalmente la imagen real/óptica del equipo tomada con cámara convencional.
 * **Tabla de Mediciones**: Generación automática de tablas que resumen las lecturas de los puntos marcados (`P1`, `P2`, etc.) con sus respectivas temperaturas, emisividad y observaciones del inspector.
 * **Codificación Robusta**: Compatibilidad total con la codificación de fuentes en PDF (evitando caídas por caracteres no estándar).

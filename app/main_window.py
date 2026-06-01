@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
 from .thermal_analyzer import ThermalAnalyzer, ThermalPoint, load_mastfuyi_bmp
 from .upscaler import ImageUpscaler
 from .image_viewer import ThermalImageViewer, AnnotationItem
-from .project_dialogs import ProjectInfoDialog, InstrumentInfoDialog
+from .project_dialogs import ProjectInfoDialog, InstrumentInfoDialog, ProjectObservationsDialog
 from .histogram_widget import HistogramWidget
 from .sidebar_panel import SidebarPanel
 from .report_dialog import ReportDialog
@@ -79,7 +79,9 @@ class MainWindow(QMainWindow):
             "time": "",
             "ambient_temp": 20.0,
             "logo_path": "",
-            "equipment_image_path": ""
+            "equipment_image_path": "",
+            "general_observations": "",
+            "report_number": ""
         }
         self._instrument_info = {
             "brand": "Mastfuyi",
@@ -203,6 +205,10 @@ class MainWindow(QMainWindow):
         act_proj_inst = QAction("Instrumento de Medición...", self)
         act_proj_inst.triggered.connect(self._show_instrument_info_dialog)
         project_menu.addAction(act_proj_inst)
+
+        act_proj_obs = QAction("Observaciones del Proyecto...", self)
+        act_proj_obs.triggered.connect(self._show_project_observations_dialog)
+        project_menu.addAction(act_proj_obs)
 
         # ── Medición ──────────────────────────────────
         meas_menu = menubar.addMenu("&Medición")
@@ -833,7 +839,7 @@ class MainWindow(QMainWindow):
         title_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #ff6b35; font-family: 'Outfit', 'Inter';")
         text_layout.addWidget(title_label)
         
-        version_label = QLabel("Versión 2.0")
+        version_label = QLabel("Versión 1.1")
         version_label.setStyleSheet("font-size: 11px; color: #a0a0b0; font-family: 'Inter';")
         text_layout.addWidget(version_label)
         
@@ -915,6 +921,13 @@ class MainWindow(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._instrument_info = dialog.info
             self.statusBar().showMessage("✅ Información de instrumento actualizada", 3000)
+
+    def _show_project_observations_dialog(self):
+        """Muestra el diálogo para editar las observaciones del proyecto."""
+        dialog = ProjectObservationsDialog(self._project_info, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._project_info = dialog.info
+            self.statusBar().showMessage("✅ Observaciones del proyecto actualizadas", 3000)
 
     # ── Métodos Multi-Medición ─────────────────────────────
 
@@ -1231,7 +1244,9 @@ class MainWindow(QMainWindow):
             "time": "",
             "ambient_temp": 20.0,
             "logo_path": "",
-            "equipment_image_path": ""
+            "equipment_image_path": "",
+            "general_observations": "",
+            "report_number": ""
         }
         self._instrument_info = {
             "brand": "Mastfuyi",
@@ -1418,7 +1433,7 @@ class MainWindow(QMainWindow):
                     files_to_zip.append((m["real_image_path"], real_name))
 
             metadata = {
-                "project_version": "2.0",
+                "project_version": "1.1",
                 "project_info": saved_project_info,
                 "instrument_info": self._instrument_info,
                 "measurements": measurements_meta
@@ -1495,7 +1510,9 @@ class MainWindow(QMainWindow):
                     "time": "",
                     "ambient_temp": 20.0,
                     "logo_path": "",
-                    "equipment_image_path": ""
+                    "equipment_image_path": "",
+                    "general_observations": "",
+                    "report_number": ""
                 }
                 self._instrument_info = {
                     "brand": "Mastfuyi",

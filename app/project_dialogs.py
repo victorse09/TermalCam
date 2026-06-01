@@ -9,7 +9,8 @@ from PyQt6.QtCore import Qt, QDate, QTime
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGroupBox,
     QLabel, QLineEdit, QDoubleSpinBox, QPushButton,
-    QFileDialog, QFormLayout, QToolButton, QDateEdit, QTimeEdit
+    QFileDialog, QFormLayout, QToolButton, QDateEdit, QTimeEdit,
+    QTextEdit
 )
 
 
@@ -35,6 +36,10 @@ class ProjectInfoDialog(QDialog):
         self.edit_title = QLineEdit(self.info.get("title", "Informe de Análisis Térmico"))
         self.edit_title.setPlaceholderText("Título del informe")
         form.addRow("Título:", self.edit_title)
+
+        self.edit_report_number = QLineEdit(self.info.get("report_number", ""))
+        self.edit_report_number.setPlaceholderText("Número o código del informe")
+        form.addRow("Informe:", self.edit_report_number)
 
         self.edit_author = QLineEdit(self.info.get("author", ""))
         self.edit_author.setPlaceholderText("Nombre del autor/analista")
@@ -136,6 +141,7 @@ class ProjectInfoDialog(QDialog):
     def _save_data(self):
         """Valida y guarda las entradas en el diccionario de información."""
         self.info["title"] = self.edit_title.text()
+        self.info["report_number"] = self.edit_report_number.text()
         self.info["author"] = self.edit_author.text()
         self.info["project_name"] = self.edit_project.text()
         self.info["location"] = self.edit_location.text()
@@ -207,3 +213,62 @@ class InstrumentInfoDialog(QDialog):
         self.info["serial_number"] = self.edit_serial.text()
 
         self.accept()
+
+
+class ProjectObservationsDialog(QDialog):
+    """Diálogo para configurar y guardar las observaciones generales del proyecto."""
+
+    def __init__(self, info: dict, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Observaciones del Proyecto")
+        self.setMinimumSize(500, 350)
+        self.info = info.copy()  # Copia local de trabajo
+        self._setup_ui()
+
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+
+        # Grupo: Observaciones
+        obs_group = QGroupBox("Observaciones y Comentarios Generales")
+        group_layout = QVBoxLayout(obs_group)
+        group_layout.setSpacing(8)
+
+        lbl_desc = QLabel(
+            "Ingrese las observaciones, alcances y comentarios generales del proyecto.\n"
+            "Este texto aparecerá en la página de Resumen e Instrumentación del informe."
+        )
+        lbl_desc.setWordWrap(True)
+        lbl_desc.setStyleSheet("color: #a0a0b0; font-size: 11px;")
+        group_layout.addWidget(lbl_desc)
+
+        self.edit_obs = QTextEdit()
+        self.edit_obs.setPlainText(self.info.get("general_observations", ""))
+        self.edit_obs.setPlaceholderText("Ej: La presente inspección técnica se realizó en condiciones normales de operación...")
+        group_layout.addWidget(self.edit_obs)
+
+        layout.addWidget(obs_group)
+
+        # Botones
+        btn_layout = QHBoxLayout()
+        self.btn_save = QPushButton("Guardar Observaciones")
+        self.btn_save.setObjectName("btnPrimary")
+        self.btn_save.setMinimumHeight(35)
+        self.btn_save.clicked.connect(self._save_data)
+
+        self.btn_cancel = QPushButton("Cancelar")
+        self.btn_cancel.clicked.connect(self.reject)
+
+        btn_layout.addWidget(self.btn_cancel)
+        btn_layout.addWidget(self.btn_save)
+        layout.addLayout(btn_layout)
+
+        if parent := self.parent():
+            if hasattr(parent, 'styleSheet'):
+                self.setStyleSheet(parent.styleSheet())
+
+    def _save_data(self):
+        """Guarda las observaciones en el diccionario local."""
+        self.info["general_observations"] = self.edit_obs.toPlainText()
+        self.accept()
+
