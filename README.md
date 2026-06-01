@@ -1,20 +1,20 @@
-# 📸 ThermalCam Analyzer v2.0
+# 📸 ThermalCam Analyzer v1.1
 
 ![ThermalCam Analyzer Screenshot](screenshot.png)
 
 **ThermalCam Analyzer** es un software profesional de escritorio, multiplataforma, desarrollado en Python y PyQt6, diseñado específicamente para la decodificación, visualización interactiva, análisis térmico cuantitativo y mejora de resolución por Inteligencia Artificial (Súper-Resolución) de imágenes capturadas con cámaras termográficas (como la serie **Mastfuyi** y compatibles).
 
-La **Versión 2.0** introduce el revolucionario formato de archivo de proyectos unificado `.tcp` multi-medición, un panel avanzado de control de instrumentación, soporte optimizado para redes neuronales de súper-resolución y un generador de informes técnicos en PDF de alta fidelidad.
+La **Versión 1.1** introduce el revolucionario formato de archivo de proyectos unificado `.tcp` multi-medición, un panel avanzado de control de instrumentación, soporte optimizado para redes neuronales de súper-resolución y un generador de informes técnicos en PDF de alta fidelidad.
 
 ---
 
-## 🚀 Características Principales (v2.0)
+## 🚀 Características Principales (v1.1)
 
 ### 1. 🔌 Decodificador Crudo BMP RGB565 (Mastfuyi)
 * **Compatibilidad Exclusiva**: Parser nativo de imágenes térmicas BMP Mastfuyi de 16-bits (con cabecera especial `BITMAPV3INFOHEADER` de 56 bytes). Resuelve el problema donde visores tradicionales, OpenCV o PIL fallan en leer el formato, arrojando imágenes distorsionadas o ruidosas.
 * **Extracción de Termografía**: Extrae la información de color real de la matriz activa sin pérdida de datos cromáticos.
 
-### 2. 📁 Formato de Proyecto Multi-Medición v2.0 (`.tcp`)
+### 2. 📁 Formato de Proyecto Multi-Medición v1.1 (`.tcp`)
 * **Contenedor Comprimido**: Los proyectos se empaquetan en un archivo ZIP con extensión `.tcp` que consolida todo el trabajo.
 * **Multi-Medición**: Permite guardar en un solo proyecto múltiples capturas térmicas independientes, cada una con su propia configuración de calibración, anotaciones, imagen real e imagen escalada.
 * **Guardado Inteligente**: Almacena las imágenes térmicas originales, imágenes reales, logotipos del cliente y las imágenes súper-escaladas (bajo la nomenclatura `[original]_upscaler.png`), garantizando que al abrir el proyecto en cualquier computadora, los marcadores y anotaciones calcen exactamente sobre la matriz escalada sin sufrir desajustes.
@@ -157,7 +157,7 @@ graph TD
 
 ## 🤝 Créditos y Comunidad
 
-**ThermalCam Analyzer v2.0** ha sido desarrollado con el firme compromiso de proveer herramientas de ingeniería electrónica accesibles y de nivel profesional.
+**ThermalCam Analyzer v1.1** ha sido desarrollado con el firme compromiso de proveer herramientas de ingeniería electrónica accesibles y de nivel profesional.
 
 * **Desarrollador Principal**: Vito
 * **Agradecimientos Especiales**: Dedicado a toda la **comunidad Naseriana**.
