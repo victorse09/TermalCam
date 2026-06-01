@@ -9,7 +9,8 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
     QLabel, QDoubleSpinBox, QPushButton, QComboBox,
     QTableWidget, QTableWidgetItem, QHeaderView,
-    QScrollArea, QSizePolicy, QSpacerItem, QLineEdit, QTextEdit, QFileDialog
+    QScrollArea, QSizePolicy, QSpacerItem, QLineEdit, QTextEdit, QFileDialog,
+    QCheckBox
 )
 from .thermal_analyzer import ThermalPoint
 
@@ -23,6 +24,8 @@ class SidebarPanel(QWidget):
     upscale_requested = pyqtSignal(str, int)  # method, factor
     report_requested = pyqtSignal()
     clear_points_requested = pyqtSignal()
+    show_labels_toggled = pyqtSignal(bool)
+    point_comment_changed = pyqtSignal(int, str)
 
     # Nuevas Señales para Proyecto Multi-Medición
     measurement_changed = pyqtSignal(int)
@@ -235,9 +238,9 @@ class SidebarPanel(QWidget):
 
         # Tabla
         self.table_points = QTableWidget()
-        self.table_points.setColumnCount(5)
+        self.table_points.setColumnCount(6)
         self.table_points.setHorizontalHeaderLabels(
-            ["#", "X", "Y", "RGB", "T° (°C)"])
+            ["#", "X", "Y", "RGB", "T°", "Comentario"])
         self.table_points.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch)
         self.table_points.verticalHeader().setVisible(False)
@@ -245,7 +248,16 @@ class SidebarPanel(QWidget):
         self.table_points.setSelectionBehavior(
             QTableWidget.SelectionBehavior.SelectRows)
         self.table_points.setMinimumHeight(150)
+        self.table_points.itemChanged.connect(self._on_table_item_changed)
         layout.addWidget(self.table_points)
+
+        # Checkbox para mostrar etiquetas en imagen
+        self.chk_show_labels = QCheckBox("Mostrar comentarios en imagen")
+        self.chk_show_labels.setChecked(True)
+        self.chk_show_labels.setStyleSheet("color: #a0a0b0; font-size: 11px;")
+        self.chk_show_labels.stateChanged.connect(
+            lambda state: self.show_labels_toggled.emit(state == 2))
+        layout.addWidget(self.chk_show_labels)
 
         # Botón limpiar puntos
         self.btn_clear_points = QPushButton("Limpiar Puntos")
@@ -420,6 +432,7 @@ class SidebarPanel(QWidget):
 
     def add_point_to_table(self, point: ThermalPoint):
         """Añade un punto a la tabla."""
+        self.table_points.blockSignals(True)
         row = self.table_points.rowCount()
         self.table_points.insertRow(row)
 
@@ -431,27 +444,51 @@ class SidebarPanel(QWidget):
             QTableWidgetItem(
                 f"{point.temperature:.1f}" if point.temperature is not None
                 else "---"),
+            QTableWidgetItem(point.label or ""),
         ]
 
         for col, item in enumerate(items):
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            if col < 5:
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            else:
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
             self.table_points.setItem(row, col, item)
 
         # Color de temperatura en la celda
         if point.temperature is not None:
-            temp_item = items[-1]
+            temp_item = items[4]
             temp_item.setForeground(QColor("#ff6b35"))
+        
+        self.table_points.blockSignals(False)
 
     def clear_points_table(self):
         """Limpia la tabla de puntos."""
+        self.table_points.blockSignals(True)
         self.table_points.setRowCount(0)
+        self.table_points.blockSignals(False)
 
     def refresh_points_table(self, points: list):
         """Refresca toda la tabla con la lista de puntos."""
         self.clear_points_table()
         for pt in points:
             self.add_point_to_table(pt)
+
+    def _on_table_item_changed(self, item):
+        col = item.column()
+        if col != 5: # Solo Columna 5 'Comentario'
+            return
+        
+        row = item.row()
+        id_item = self.table_points.item(row, 0)
+        if not id_item:
+            return
+        id_text = id_item.text()
+        try:
+            pt_index = int(id_text.replace("P", ""))
+            self.point_comment_changed.emit(pt_index, item.text().strip())
+        except:
+            pass
 
     def set_available_methods(self, methods: list):
         """Actualiza los métodos disponibles."""

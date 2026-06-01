@@ -698,9 +698,12 @@ class ReportDialog(QDialog):
             cv2.line(img, (x - int(size * 1.5), y), (x + int(size * 1.5), y), color_cross, int(max(1, thickness - 1)))
             cv2.line(img, (x, y - int(size * 1.5)), (x, y + int(size * 1.5)), color_cross, int(max(1, thickness - 1)))
 
-            # Etiqueta de texto (P1: 75.9°C)
+            # Etiqueta de texto (P1: 75.9°C o P1 (Borne R): 75.9°C)
             temp_str = f"{pt.temperature:.1f}C" if pt.temperature is not None else "---"
-            label_text = f"P{pt.index}: {temp_str}"
+            if pt.label and pt.label.strip():
+                label_text = f"P{pt.index} ({pt.label.strip()}): {temp_str}"
+            else:
+                label_text = f"P{pt.index}: {temp_str}"
 
             (tw, th), baseline = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, int(max(1, thickness - 1)))
 

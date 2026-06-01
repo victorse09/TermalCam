@@ -22,7 +22,8 @@ class MarkerItem(QGraphicsItemGroup):
     """Marcador visual para un punto de medición térmica."""
 
     def __init__(self, x: float, y: float, index: int,
-                 temperature: float = None, parent=None):
+                 temperature: float = None, label_str: str = "",
+                 show_label: bool = True, parent=None):
         super().__init__(parent)
         self.point_x = x
         self.point_y = y
@@ -49,7 +50,10 @@ class MarkerItem(QGraphicsItemGroup):
 
         # Etiqueta de texto
         temp_str = f"{temperature:.1f}°C" if temperature is not None else "---"
-        label_text = f"P{index}: {temp_str}"
+        if show_label and label_str.strip():
+            label_text = f"P{index} ({label_str}): {temp_str}"
+        else:
+            label_text = f"P{index}: {temp_str}"
 
         label_bg = QGraphicsRectItem()
         label_bg.setBrush(QBrush(QColor(15, 15, 26, 200)))
@@ -134,6 +138,7 @@ class ThermalImageViewer(QGraphicsView):
         self._annotations: list[AnnotationItem] = []
         self._current_drawing_item: AnnotationItem = None
         self._drawing_start: QPointF = None
+        self._show_marker_labels = True
 
         # Analizador térmico (se configura externamente)
         self.analyzer: ThermalAnalyzer = None
@@ -270,6 +275,31 @@ class ThermalImageViewer(QGraphicsView):
     def get_points(self) -> list:
         """Retorna la lista de puntos marcados."""
         return self._points.copy()
+
+    def set_show_marker_labels(self, show: bool):
+        """Configura si se muestran los comentarios en las etiquetas del visor."""
+        self._show_marker_labels = show
+        self.refresh_markers()
+
+    def refresh_markers(self):
+        """Redibuja todos los marcadores en la escena para aplicar cambios de etiquetas o visibilidad."""
+        for marker in self._markers:
+            try:
+                self._scene.removeItem(marker)
+            except:
+                pass
+        self._markers.clear()
+        
+        for pt in self._points:
+            self._add_marker_visual(pt)
+
+    def update_point_label(self, index: int, label: str):
+        """Actualiza la etiqueta (comentario) de un punto por su índice."""
+        for pt in self._points:
+            if pt.index == index:
+                pt.label = label
+                self.refresh_markers()
+                break
 
     def get_annotations(self) -> list[AnnotationItem]:
         """Retorna la lista de anotaciones de figuras/texto."""
@@ -474,7 +504,8 @@ class ThermalImageViewer(QGraphicsView):
 
     def _add_marker_visual(self, pt: ThermalPoint):
         """Añade un marcador visual al scene."""
-        marker = MarkerItem(pt.x, pt.y, pt.index, pt.temperature)
+        show_lbl = getattr(self, "_show_marker_labels", True)
+        marker = MarkerItem(pt.x, pt.y, pt.index, pt.temperature, pt.label, show_lbl)
         self._scene.addItem(marker)
         self._markers.append(marker)
 

@@ -420,6 +420,18 @@ class MainWindow(QMainWindow):
         self.sidebar.observations_changed.connect(self._on_observations_changed)
         self.sidebar.real_image_loaded.connect(self._on_real_image_loaded)
         self.sidebar.real_image_removed.connect(self._on_real_image_removed)
+        self.sidebar.show_labels_toggled.connect(self._on_show_labels_toggled)
+        self.sidebar.point_comment_changed.connect(self._on_point_comment_changed)
+
+    def _on_show_labels_toggled(self, checked: bool):
+        """Alterna la visibilidad de los comentarios de los puntos en el visor."""
+        self.viewer.set_show_marker_labels(checked)
+
+    def _on_point_comment_changed(self, index: int, comment: str):
+        """Actualiza el comentario/label de un punto específico."""
+        self.viewer.update_point_label(index, comment)
+        if 0 <= self._current_measurement_index < len(self._measurements):
+            self._save_measurement_state(self._current_measurement_index)
 
     # ── Acciones de archivo ──────────────────────────────────
 
