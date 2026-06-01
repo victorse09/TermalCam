@@ -799,6 +799,7 @@ class MainWindow(QMainWindow):
             instrument_info=self._instrument_info,
             measurements=self._measurements,
             histogram_widget=self.histogram,
+            show_marker_labels=self.sidebar.chk_show_labels.isChecked(),
             parent=self
         )
         dialog.exec()

@@ -23,7 +23,7 @@ class ReportDialog(QDialog):
     """Diálogo para configurar y generar un informe PDF multipágina consolidado."""
 
     def __init__(self, project_info: dict, instrument_info: dict,
-                 measurements: list, histogram_widget=None, parent=None):
+                 measurements: list, histogram_widget=None, show_marker_labels: bool = True, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Generar Informe PDF Consolidado")
         self.setMinimumSize(520, 480)
@@ -31,6 +31,7 @@ class ReportDialog(QDialog):
         self._instrument_info = instrument_info
         self._measurements = measurements
         self._histogram_widget = histogram_widget
+        self._show_marker_labels = show_marker_labels
         self._setup_ui()
 
     def _setup_ui(self):
@@ -498,7 +499,7 @@ class ReportDialog(QDialog):
                 current_size = (ch, cw)
 
                 if m["points"]:
-                    img_up_to_render = self._draw_markers_on_array(img_up_to_render, m["points"], current_size)
+                    img_up_to_render = self._draw_markers_on_array(img_up_to_render, m["points"], current_size, self._show_marker_labels)
                 if m["annotations"]:
                     img_up_to_render = self._draw_annotations_on_array(img_up_to_render, m["annotations"], current_size)
 
@@ -668,18 +669,19 @@ class ReportDialog(QDialog):
         pil_img.save(tmp_path, "PNG")
         return tmp_path
 
-    def _draw_markers_on_array(self, image_rgb: np.ndarray, points: list, current_size: tuple) -> np.ndarray:
+    def _draw_markers_on_array(self, image_rgb: np.ndarray, points: list, current_size: tuple, show_labels: bool = True) -> np.ndarray:
         """Dibuja los puntos de medición directamente sobre el array RGB usando OpenCV."""
         import cv2
         img = image_rgb.copy()
         h_target, w_target = img.shape[:2]
         h_curr, w_curr = current_size
 
-        # Tamaño de escala para dibujar según la resolución del destino
+        # Tamaño de escala para dibujar según la resolución del destino (ajustado para ser compacto y estético)
         scale_factor = w_target / 240.0
-        size = int(max(6, round(6 * scale_factor)))
-        thickness = int(max(1, round(1.5 * scale_factor)))
-        font_scale = 0.35 * scale_factor
+        size = int(max(4, round(3.5 * scale_factor)))
+        thickness = int(max(1, round(0.8 * scale_factor)))
+        font_scale = 0.23 * scale_factor
+        text_thickness = int(max(1, round(0.6 * scale_factor)))
 
         for pt in points:
             # Calcular la posición en la resolución destino
@@ -700,12 +702,12 @@ class ReportDialog(QDialog):
 
             # Etiqueta de texto (P1: 75.9°C o P1 (Borne R): 75.9°C)
             temp_str = f"{pt.temperature:.1f}C" if pt.temperature is not None else "---"
-            if pt.label and pt.label.strip():
+            if show_labels and pt.label and pt.label.strip():
                 label_text = f"P{pt.index} ({pt.label.strip()}): {temp_str}"
             else:
                 label_text = f"P{pt.index}: {temp_str}"
 
-            (tw, th), baseline = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, int(max(1, thickness - 1)))
+            (tw, th), baseline = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_thickness)
 
             # Posición arriba-derecha
             tx = x + size + int(4 * scale_factor)
@@ -719,7 +721,7 @@ class ReportDialog(QDialog):
 
             cv2.rectangle(img, (tx - 2, ty - th - 2), (tx + tw + 2, ty + baseline + 2), color_bg, -1)
             cv2.rectangle(img, (tx - 2, ty - th - 2), (tx + tw + 2, ty + baseline + 2), color_circle, 1)
-            cv2.putText(img, label_text, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, font_scale, color_text, int(max(1, thickness - 1)), cv2.LINE_AA)
+            cv2.putText(img, label_text, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, font_scale, color_text, text_thickness, cv2.LINE_AA)
 
         return img
 
