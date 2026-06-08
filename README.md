@@ -1,23 +1,23 @@
-# 📸 ThermalCam Analyzer v1.1
+# 📸 ThermalCam Analyzer v1.2
 
 ![ThermalCam Analyzer Screenshot](screenshot.png)
 
 **ThermalCam Analyzer** es un software profesional de escritorio, multiplataforma, desarrollado en Python y PyQt6, diseñado específicamente para la decodificación, visualización interactiva, análisis térmico cuantitativo y mejora de resolución por Inteligencia Artificial (Súper-Resolución) de imágenes capturadas con cámaras termográficas (como la serie **Mastfuyi** y compatibles).
 
-La **Versión 1.1** introduce el revolucionario formato de archivo de proyectos unificado `.tcp` multi-medición, un panel avanzado de control de instrumentación, soporte optimizado para redes neuronales de súper-resolución y un generador de informes técnicos en PDF de alta fidelidad.
+La **Versión 1.2** perfecciona el formato de proyecto `.tcp` multi-medición introduciendo una potente barra lateral izquierda con capacidades de arrastrar y soltar (Drag and Drop) para reordenar las mediciones del informe. Además, mejora el generador de informes PDF de alta fidelidad, la distribución de espacios, y ofrece controles avanzados como el ajuste de opacidad en cabeceras corporativas.
 
 ---
 
-## 🚀 Características Principales (v1.1)
+## 🚀 Características Principales (v1.2)
 
 ### 1. 🔌 Decodificador Crudo BMP RGB565 (Mastfuyi)
 * **Compatibilidad Exclusiva**: Parser nativo de imágenes térmicas BMP Mastfuyi de 16-bits (con cabecera especial `BITMAPV3INFOHEADER` de 56 bytes). Resuelve el problema donde visores tradicionales, OpenCV o PIL fallan en leer el formato, arrojando imágenes distorsionadas o ruidosas.
 * **Extracción de Termografía**: Extrae la información de color real de la matriz activa sin pérdida de datos cromáticos.
 
-### 2. 📁 Formato de Proyecto Multi-Medición v1.1 (`.tcp`)
+### 2. 📁 Formato de Proyecto Multi-Medición y Gestión Dinámica (`.tcp`)
 * **Contenedor Comprimido**: Los proyectos se empaquetan en un archivo ZIP con extensión `.tcp` que consolida todo el trabajo.
-* **Multi-Medición**: Permite guardar en un solo proyecto múltiples capturas térmicas independientes, cada una con su propia configuración de calibración, anotaciones, imagen real e imagen escalada.
-* **Guardado Inteligente**: Almacena las imágenes térmicas originales, imágenes reales, logotipos del cliente y las imágenes súper-escaladas (bajo la nomenclatura `[original]_upscaler.png`), garantizando que al abrir el proyecto en cualquier computadora, los marcadores y anotaciones calcen exactamente sobre la matriz escalada sin sufrir desajustes.
+* **Multi-Medición Dinámica**: Guarda múltiples capturas térmicas independientes en un solo proyecto, permitiendo la reordenación visual mediante **Drag & Drop** desde la nueva barra lateral de navegación.
+* **Guardado Inteligente**: Almacena las imágenes térmicas originales, reales, logotipos y escaladas, asegurando que las anotaciones vectoriales calzen perfectamente en cualquier resolución y dispositivo.
 
 ### 3. ⚡ Mapeo Térmico y Auto-Calibración
 * **Auto-Cal**: Algoritmo inteligente que realiza el recorte automático de la barra de color (*trimming*) para descartar bordes, calibrando la escala cromática píxel a píxel.
@@ -43,8 +43,8 @@ La **Versión 1.1** introduce el revolucionario formato de archivo de proyectos 
 ### 7. 📄 Generador de Informes PDF de Alta Fidelidad
 * **Estructura Multicapa**: Reportes multipágina de diseño limpio con cabecera corporativa, logotipo dinámico, y datos técnicos de auditoría e instrumentos.
 * **Numeración Correlativa de Figuras**: Sistema dinámico que numera de forma consecutiva todas las figuras del reporte técnico (`Fig 1 : Imagen Termográfica`, `Fig 2 : Imagen Real`, `Fig 3 : Imagen con Super-resolución...`), evitando repeticiones y ofreciendo un informe formal.
-* **Páginas e Imágenes Snug**: Layout de imágenes centrado y apilado con pies de imagen ceñidos estrictamente a la base mediante espaciados precisos de 1.5mm y 3.0mm, garantizando un acabado premium libre de grandes espacios vacíos.
-* **Formatos de Página Ajustables**: Selector interactivo de tamaño de papel (**A4**, **Carta / Letter**, **Oficio / Legal**) con recalculado matemático dinámico de encabezados, líneas separadoras y márgenes usando `pdf.w`.
+* **Páginas e Imágenes Snug**: Layout centrado con reordenamiento inteligente: la imagen térmica de alta resolución y las anotaciones comparten una página, mientras la tabla de temperatura y el histograma estadístico se imprimen siempre juntos en la siguiente.
+* **Ajuste Fino de Marca**: Personalización de formato de papel (**Carta**, **A4**, **Oficio**) y nuevo deslizador interactivo de **aclarado de opacidad** para títulos, asegurando que logotipos oscuros resalten perfectamente.
 * **Pies de Página Automatizados**: Inserción constante del pie de página de la suite y número de página en *todas* las hojas (incluyendo la portada de forma uniforme).
 * **Foto de Campo Real**: Espacio dedicado para agregar opcionalmente la imagen real/óptica del equipo tomada con cámara convencional.
 * **Tabla de Mediciones**: Generación automática de tablas que resumen las lecturas de los puntos marcados (`P1`, `P2`, etc.) con sus respectivas temperaturas, emisividad y observaciones del inspector.
@@ -72,7 +72,8 @@ termalcam/
     ├── image_viewer.py          # Lienzo gráfico vectorial interactivo (QGraphicsView)
     ├── thermal_analyzer.py      # Lógica de decodificación BMP, calibración térmica y LUTs
     ├── upscaler.py              # Inferencia convolucional y escalado de imágenes
-    ├── sidebar_panel.py         # Panel lateral derecho (Calibración, Escalado, Mediciones)
+    ├── measurement_sidebar.py   # Panel lateral izquierdo (Navegación Drag & Drop de Mediciones)
+    ├── sidebar_panel.py         # Panel lateral derecho (Calibración y Escalado)
     ├── project_dialogs.py       # Diálogos de información de proyecto e instrumento técnico
     ├── report_dialog.py         # Configuración y generación de informes PDF profesionales
     ├── histogram_widget.py      # Visualizador de histograma Matplotlib para distribución térmica
@@ -157,7 +158,7 @@ graph TD
 
 ## 🤝 Créditos y Comunidad
 
-**ThermalCam Analyzer v1.1** ha sido desarrollado con el firme compromiso de proveer herramientas de ingeniería electrónica accesibles y de nivel profesional.
+**ThermalCam Analyzer v1.2** ha sido desarrollado con el firme compromiso de proveer herramientas de ingeniería electrónica accesibles y de nivel profesional.
 
 * **Desarrollador Principal**: Vito
 * **Agradecimientos Especiales**: Dedicado a toda la **comunidad Naseriana**.

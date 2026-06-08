@@ -101,13 +101,8 @@ class SidebarPanel(QWidget):
         layout = QVBoxLayout(group)
         layout.setSpacing(8)
 
-        # 1. Selector de mediciones
-        row_sel = QHBoxLayout()
-        row_sel.addWidget(QLabel("Activa:"))
-        self.combo_measurements = QComboBox()
-        row_sel.addWidget(self.combo_measurements)
-        layout.addLayout(row_sel)
-
+        # El selector de mediciones ahora está en el panel izquierdo
+        
         # 2. Nombre de la medición
         row_name = QHBoxLayout()
         row_name.addWidget(QLabel("Nombre:"))
@@ -139,7 +134,6 @@ class SidebarPanel(QWidget):
         layout.addLayout(row_emiss)
 
         # Conectar señales
-        self.combo_measurements.currentIndexChanged.connect(self.measurement_changed.emit)
         self.edit_measurement_name.textChanged.connect(self.measurement_name_changed.emit)
         self.spin_distance.valueChanged.connect(self.measurement_distance_changed.emit)
         self.spin_emissivity.valueChanged.connect(self.measurement_emissivity_changed.emit)
@@ -398,13 +392,8 @@ class SidebarPanel(QWidget):
             self.btn_remove_real_image.setVisible(False)
 
     def update_measurement_list(self, names: list, current_index: int):
-        """Refresca la lista del ComboBox de mediciones activas."""
-        self.combo_measurements.blockSignals(True)
-        self.combo_measurements.clear()
-        self.combo_measurements.addItems(names)
-        if 0 <= current_index < len(names):
-            self.combo_measurements.setCurrentIndex(current_index)
-        self.combo_measurements.blockSignals(False)
+        """(Deprecado) El selector de lista ahora está en MeasurementSidebar."""
+        pass
 
     def update_image_info(self, filename: str, original_size: tuple,
                            current_size: tuple = None):

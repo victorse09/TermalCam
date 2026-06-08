@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGroupBox,
     QLabel, QTextEdit, QPushButton, QFileDialog,
     QMessageBox, QCheckBox, QFormLayout, QTableWidget, QTableWidgetItem,
-    QComboBox
+    QComboBox, QSlider
 )
 from .thermal_analyzer import ThermalPoint, ThermalAnalyzer
 from .image_viewer import AnnotationItem
@@ -97,18 +97,35 @@ class ReportDialog(QDialog):
 
         # 3. Formato de Página
         format_group = QGroupBox("Formato de Página")
-        format_layout = QHBoxLayout(format_group)
-        format_layout.setContentsMargins(10, 8, 10, 8)
+        format_layout = QVBoxLayout(format_group)
         
+        row_paper = QHBoxLayout()
+        row_paper.setContentsMargins(10, 8, 10, 8)
         lbl_format = QLabel("Tamaño de Papel:")
         lbl_format.setStyleSheet("font-weight: bold; color: #a0a0b0;")
-        format_layout.addWidget(lbl_format)
+        row_paper.addWidget(lbl_format)
         
         self.combo_format = QComboBox()
-        self.combo_format.addItem("A4 (Estándar - 210x297 mm)", "a4")
         self.combo_format.addItem("Carta (Letter - 215.9x279.4 mm)", "letter")
+        self.combo_format.addItem("A4 (Estándar - 210x297 mm)", "a4")
         self.combo_format.addItem("Oficio (Legal - 215.9x355.6 mm)", "legal")
-        format_layout.addWidget(self.combo_format)
+        row_paper.addWidget(self.combo_format)
+        format_layout.addLayout(row_paper)
+
+        row_slider = QHBoxLayout()
+        row_slider.setContentsMargins(10, 0, 10, 8)
+        lbl_opacity = QLabel("Aclarar barra de título:")
+        lbl_opacity.setStyleSheet("color: #a0a0b0; font-weight: bold;")
+        row_slider.addWidget(lbl_opacity)
+        
+        self.slider_header_lightness = QSlider(Qt.Orientation.Horizontal)
+        self.slider_header_lightness.setRange(0, 100)
+        saved_lightness = self._project_info.get("report_header_lightness", 0)
+        self.slider_header_lightness.setValue(saved_lightness)
+        self.slider_header_lightness.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.slider_header_lightness.setTickInterval(10)
+        row_slider.addWidget(self.slider_header_lightness)
+        format_layout.addLayout(row_slider)
         
         layout.addWidget(format_group)
 
@@ -157,7 +174,11 @@ class ReportDialog(QDialog):
             return
 
         try:
-            self._build_pdf(filepath, self.combo_format.currentData())
+            lightness_factor = self.slider_header_lightness.value() / 100.0
+            self._build_pdf(filepath, self.combo_format.currentData(), lightness_factor)
+            
+            self._project_info["report_header_lightness"] = self.slider_header_lightness.value()
+            
             QMessageBox.information(
                 self, "Éxito",
                 f"Informe multipágina generado exitosamente:\n{filepath}")
@@ -167,13 +188,13 @@ class ReportDialog(QDialog):
                 self, "Error",
                 f"Error al generar el informe consolidado:\n{str(e)}")
 
-    def _build_pdf(self, filepath: str, format_str: str = "a4"):
+    def _build_pdf(self, filepath: str, format_str: str = "a4", lightness: float = 0.0):
         """Construye el PDF multipágina usando FPDF2."""
         from fpdf import FPDF
         from PIL import Image
 
         class ThermalReportPDF(FPDF):
-            def __init__(self, project_info: dict, version_str: str = "v1.1", has_cover: bool = True, format_val: str = "a4"):
+            def __init__(self, project_info: dict, version_str: str = "v1.2", has_cover: bool = True, format_val: str = "a4"):
                 super().__init__(format=format_val)
                 self._project_info = project_info
                 self.version_str = version_str
@@ -193,7 +214,7 @@ class ReportDialog(QDialog):
                 # Número de página sin fecha
                 self.cell(0, 5, f"Página {self.page_no()}", align='R')
 
-        pdf = ThermalReportPDF(self._project_info, version_str="v1.1", has_cover=self.chk_cover.isChecked(), format_val=format_str)
+        pdf = ThermalReportPDF(self._project_info, version_str="v1.2", has_cover=self.chk_cover.isChecked(), format_val=format_str)
         pdf.set_auto_page_break(auto=True, margin=15)
         
         # Archivos temporales para limpiar al final
@@ -203,8 +224,12 @@ class ReportDialog(QDialog):
         if self.chk_cover.isChecked():
             pdf.add_page()
             
-            # Encabezado corporativo premium (Bloque superior azul oscuro más angosto)
-            pdf.set_fill_color(22, 22, 40)
+            # Encabezado corporativo premium (Bloque superior dinámico)
+            r = int(22 + (240 - 22) * lightness)
+            g = int(22 + (240 - 22) * lightness)
+            b = int(40 + (240 - 40) * lightness)
+            
+            pdf.set_fill_color(r, g, b)
             pdf.rect(0, 0, pdf.w, 65, 'F')
             
             # Dibujar línea naranja decorativa
@@ -222,12 +247,18 @@ class ReportDialog(QDialog):
             # Título y Subtítulo
             pdf.set_y(42)
             pdf.set_font("Helvetica", "B", 24)
-            pdf.set_text_color(255, 255, 255)
+            if sum((r, g, b)) / 3 > 180:
+                pdf.set_text_color(40, 40, 50)
+            else:
+                pdf.set_text_color(255, 255, 255)
             pdf.cell(0, 10, self._project_info.get("title", "Informe de Inspección Térmica"),
                      align='L', new_x="LMARGIN", new_y="NEXT")
             
             pdf.set_font("Helvetica", "I", 12)
-            pdf.set_text_color(180, 180, 200)
+            if sum((r, g, b)) / 3 > 180:
+                pdf.set_text_color(80, 80, 100)
+            else:
+                pdf.set_text_color(180, 180, 200)
             pdf.cell(0, 8, "Inspección Termográfica Cuantitativa de Alta Resolución",
                      align='L', new_x="LMARGIN", new_y="NEXT")
 
@@ -288,7 +319,7 @@ class ReportDialog(QDialog):
             pdf.add_page()
             
             # Encabezado de página
-            self._write_page_header(pdf, "Resumen e Instrumentación")
+            self._write_page_header(pdf, "Resumen e Instrumentación", lightness)
 
             # Instrumento
             pdf.set_font("Helvetica", "B", 13)
@@ -374,7 +405,7 @@ class ReportDialog(QDialog):
             pdf.add_page()
             
             # Encabezado
-            self._write_page_header(pdf, f"Medición {idx + 1}: {m['name']}")
+            self._write_page_header(pdf, f"Medición {idx + 1}: {m['name']}", lightness)
 
             # Parámetros técnicos
             pdf.set_font("Helvetica", "B", 11)
@@ -483,7 +514,7 @@ class ReportDialog(QDialog):
             if self.chk_upscaled.isChecked():
                 # Forzar salto de página para la imagen de alta resolución anotada
                 pdf.add_page()
-                self._write_page_header(pdf, f"Medición {idx + 1} - Análisis Gráfico")
+                self._write_page_header(pdf, f"Medición {idx + 1} - Análisis Gráfico", lightness)
 
                 pdf.set_font("Helvetica", "B", 11)
                 pdf.set_text_color(255, 107, 53)
@@ -539,10 +570,9 @@ class ReportDialog(QDialog):
 
             # TABLA DE PUNTOS MEDIDOS
             if self.chk_points.isChecked() and m["points"]:
-                # Si nos queda poco espacio vertical, hacemos salto de página
-                if pdf.get_y() > 200:
-                    pdf.add_page()
-                    self._write_page_header(pdf, f"Medición {idx + 1} - Datos Numéricos")
+                # Siempre iniciar una nueva página para tabla de puntos e histograma
+                pdf.add_page()
+                self._write_page_header(pdf, f"Medición {idx + 1} - Datos Numéricos", lightness)
 
                 pdf.set_font("Helvetica", "B", 11)
                 pdf.set_text_color(255, 107, 53)
@@ -588,9 +618,13 @@ class ReportDialog(QDialog):
 
             # HISTOGRAMA DE TEMPERATURA
             if self.chk_histogram.isChecked() and self._histogram_widget is not None:
-                if pdf.get_y() > 180:
+                # Si no se imprimieron los puntos y es la primera cosa después de la imagen, quizá necesite salto
+                if not (self.chk_points.isChecked() and m["points"]):
                     pdf.add_page()
-                    self._write_page_header(pdf, f"Medición {idx + 1} - Análisis Estadístico")
+                    self._write_page_header(pdf, f"Medición {idx + 1} - Análisis Estadístico", lightness)
+                elif pdf.get_y() > 220:
+                    pdf.add_page()
+                    self._write_page_header(pdf, f"Medición {idx + 1} - Análisis Estadístico", lightness)
 
                 pdf.set_font("Helvetica", "B", 11)
                 pdf.set_text_color(255, 107, 53)
@@ -604,8 +638,8 @@ class ReportDialog(QDialog):
                 self._histogram_widget.save_histogram_for_data(tmp_hist, m["current_image"], m["points"], dpi=120)
                 tmp_files.append(tmp_hist)
 
-                # Reducir a la mitad la altura del histograma en el PDF y centrar dinámicamente
-                pdf.image(tmp_hist, x=(pdf.w - 160) / 2, w=160, h=32.5)
+                # Reducir la altura del histograma en el PDF (h=24) para que no se vea estirado verticalmente
+                pdf.image(tmp_hist, x=(pdf.w - 160) / 2, w=160, h=24)
                 pdf.ln(3.0) # FPDF2 ya avanzó y por el alto, solo bajamos 3mm para la separación
 
             # OBSERVACIONES (Si no se imprimieron antes, por ejemplo si chk_upscaled estaba desactivado)
@@ -613,7 +647,7 @@ class ReportDialog(QDialog):
             if obs_text and not obs_printed:
                 if pdf.get_y() > 210:
                     pdf.add_page()
-                    self._write_page_header(pdf, f"Medición {idx + 1} - Observaciones")
+                    self._write_page_header(pdf, f"Medición {idx + 1} - Observaciones", lightness)
 
                 pdf.set_font("Helvetica", "B", 11)
                 pdf.set_text_color(255, 107, 53)
@@ -638,9 +672,13 @@ class ReportDialog(QDialog):
             except Exception as e:
                 print(f"Error al remover temporal de reporte: {e}")
 
-    def _write_page_header(self, pdf, section_title: str):
+    def _write_page_header(self, pdf, section_title: str, lightness: float):
         """Dibuja un encabezado estandarizado en la parte superior de cada página de reporte."""
-        pdf.set_fill_color(22, 22, 40)
+        r = int(22 + (240 - 22) * lightness)
+        g = int(22 + (240 - 22) * lightness)
+        b = int(40 + (240 - 40) * lightness)
+        
+        pdf.set_fill_color(r, g, b)
         pdf.rect(0, 0, pdf.w, 22, 'F')
         
         pdf.set_fill_color(255, 107, 53)
@@ -656,7 +694,10 @@ class ReportDialog(QDialog):
 
         pdf.set_y(6)
         pdf.set_font("Helvetica", "B", 12)
-        pdf.set_text_color(255, 255, 255)
+        if sum((r, g, b)) / 3 > 180:
+            pdf.set_text_color(40, 40, 50)
+        else:
+            pdf.set_text_color(255, 255, 255)
         pdf.cell(0, 8, section_title, align='R')
         pdf.set_y(28)
         pdf.ln(2)

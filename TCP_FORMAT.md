@@ -1,4 +1,4 @@
-# Formato de Archivo TCP — ThermalCam Project (.tcp) - Versión 1.1
+# Formato de Archivo TCP — ThermalCam Project (.tcp) - Versión 1.2
 
 El formato **TCP (ThermalCam Project)** es la extensión de archivo propietaria utilizada por **ThermalCam Analyzer** para guardar y restaurar sesiones completas de análisis termográfico de manera eficiente y compacta. 
 
@@ -6,7 +6,7 @@ Físicamente, un archivo `.tcp` es un **contenedor comprimido ZIP** que encapsul
 
 ---
 
-## 1. Estructura Interna del Archivo (Versión 1.1 Multi-Medición)
+## 1. Estructura Interna del Archivo (Versión 1.2 Multi-Medición)
 
 Cuando un archivo con extensión `.tcp` se descomprime (usando cualquier descompresor ZIP estándar), revela la siguiente jerarquía de archivos:
 
@@ -26,13 +26,13 @@ mi_analisis.tcp (Archivo ZIP)
 
 ## 2. Especificación de `metadata.json`
 
-El archivo `metadata.json` es el "cerebro" del proyecto. Contiene toda la información técnica asociada al análisis. A continuación se detalla su esquema y tipos de datos en la versión 1.1:
+El archivo `metadata.json` es el "cerebro" del proyecto. Contiene toda la información técnica asociada al análisis. A continuación se detalla su esquema y tipos de datos en la versión 1.2:
 
 ### Esquema Completo (`metadata.json`)
 
 ```json
 {
-  "project_version": "1.1",
+  "project_version": "1.2",
   "project_info": {
     "title": "Informe de Análisis Térmico",
     "author": "Vito",

@@ -25,6 +25,7 @@ from .image_viewer import ThermalImageViewer, AnnotationItem
 from .project_dialogs import ProjectInfoDialog, InstrumentInfoDialog, ProjectObservationsDialog
 from .histogram_widget import HistogramWidget
 from .sidebar_panel import SidebarPanel
+from .measurement_sidebar import MeasurementSidebar
 from .report_dialog import ReportDialog
 from .styles import DARK_THEME
 
@@ -118,16 +119,23 @@ class MainWindow(QMainWindow):
         self.viewer = ThermalImageViewer()
         self.viewer.analyzer = self.analyzer
 
-        # Panel lateral
+        # Panel lateral izquierdo (Mediciones)
+        self.left_sidebar = MeasurementSidebar(self)
+        self.left_sidebar.measurement_selected.connect(self._change_active_measurement)
+        self.left_sidebar.measurements_reordered.connect(self._on_measurements_reordered)
+
+        # Panel lateral derecho (Controles)
         methods = self.upscaler.get_available_methods()
         self.sidebar = SidebarPanel(available_methods=methods)
         self.sidebar.setMinimumWidth(280)
         self.sidebar.setMaximumWidth(400)
 
+        h_splitter.addWidget(self.left_sidebar)
         h_splitter.addWidget(self.viewer)
         h_splitter.addWidget(self.sidebar)
-        h_splitter.setStretchFactor(0, 3)
-        h_splitter.setStretchFactor(1, 1)
+        h_splitter.setStretchFactor(0, 0)
+        h_splitter.setStretchFactor(1, 3)
+        h_splitter.setStretchFactor(2, 1)
 
         # Histograma
         self.histogram = HistogramWidget()
@@ -280,6 +288,11 @@ class MainWindow(QMainWindow):
         toolbar.setMovable(False)
         self.addToolBar(toolbar)
 
+        act_toggle_sidebar = toolbar.addAction(QIcon("resources/icons/menu.svg"), "Alternar Panel")
+        act_toggle_sidebar.triggered.connect(self._toggle_left_sidebar)
+        
+        toolbar.addSeparator()
+
         toolbar.addAction(QIcon("resources/icons/folder.svg"), "Abrir", self._open_file)
         toolbar.addSeparator()
 
@@ -413,7 +426,6 @@ class MainWindow(QMainWindow):
         self.sidebar.clear_points_requested.connect(self._clear_points)
 
         # Sidebar — Nuevas señales multi-medición
-        self.sidebar.measurement_changed.connect(self._change_active_measurement)
         self.sidebar.measurement_name_changed.connect(self._on_measurement_name_changed)
         self.sidebar.measurement_distance_changed.connect(self._on_measurement_distance_changed)
         self.sidebar.measurement_emissivity_changed.connect(self._on_measurement_emissivity_changed)
@@ -432,6 +444,10 @@ class MainWindow(QMainWindow):
         self.viewer.update_point_label(index, comment)
         if 0 <= self._current_measurement_index < len(self._measurements):
             self._save_measurement_state(self._current_measurement_index)
+
+    def _toggle_left_sidebar(self):
+        """Muestra u oculta la barra lateral de mediciones."""
+        self.left_sidebar.setVisible(not self.left_sidebar.isVisible())
 
     # ── Acciones de archivo ──────────────────────────────────
 
@@ -475,20 +491,14 @@ class MainWindow(QMainWindow):
         ])
 
     def _prev_image(self):
-        """Carga la imagen anterior."""
-        if self._file_list and self._file_index > 0:
-            self._file_index -= 1
-            self._load_image(
-                os.path.join(self._current_dir,
-                             self._file_list[self._file_index]))
+        """Cambia a la medición anterior del proyecto."""
+        if self._measurements and self._current_measurement_index > 0:
+            self._change_active_measurement(self._current_measurement_index - 1)
 
     def _next_image(self):
-        """Carga la imagen siguiente."""
-        if self._file_list and self._file_index < len(self._file_list) - 1:
-            self._file_index += 1
-            self._load_image(
-                os.path.join(self._current_dir,
-                             self._file_list[self._file_index]))
+        """Cambia a la medición siguiente del proyecto."""
+        if self._measurements and self._current_measurement_index < len(self._measurements) - 1:
+            self._change_active_measurement(self._current_measurement_index + 1)
 
     def _load_image(self, filepath: str):
         """Carga una imagen desde disco."""
@@ -515,18 +525,27 @@ class MainWindow(QMainWindow):
         if not self._measurements:
             self._add_measurement_from_image(filepath, image_rgb)
         else:
-            # Reemplazar la medición activa si está vacía (sin original_image)
-            if len(self._measurements) == 1 and self._measurements[0]["original_image"] is None:
-                m = self._measurements[0]
-                m["original_image"] = image_rgb
-                m["current_image"] = image_rgb.copy()
-                m["thermal_file_path"] = filepath
-                m["name"] = os.path.basename(filepath)
-                self._current_measurement_index = 0
-                self._change_active_measurement(0)
-            else:
-                # Agregar como nueva medición
-                self._add_measurement_from_image(filepath, image_rgb)
+            # Reemplazar la imagen en la medición activa actual en lugar de crear una nueva
+            m = self._measurements[self._current_measurement_index]
+            m["original_image"] = image_rgb
+            m["current_image"] = image_rgb.copy()
+            m["thermal_file_path"] = filepath
+            m["name"] = os.path.basename(filepath)
+            
+            # Limpiamos puntos y anotaciones porque es una imagen diferente
+            m["points"] = []
+            m["annotations"] = []
+            m["upscaled_image"] = None
+            m["calibration"]["is_calibrated"] = False
+            
+            self._load_measurement_state(self._current_measurement_index)
+            
+            # Actualizar barra lateral de mediciones
+            self.left_sidebar.update_list(self._measurements, self._current_measurement_index)
+            
+            # Actualizar también el combobox viejo si se mantiene
+            names = [mes["name"] for mes in self._measurements]
+            self.sidebar.update_measurement_list(names, self._current_measurement_index)
 
     def _export_image(self):
         """Exporta la imagen actual (original o escalada) como PNG."""
@@ -807,14 +826,14 @@ class MainWindow(QMainWindow):
     def _show_instructions(self):
         """Muestra las instrucciones de uso del programa."""
         instructions_text = (
-            "<h3>Guía de Uso de ThermalCam Analyzer</h3>"
+            "<h3>Guía de Uso de ThermalCam Analyzer v1.2</h3>"
             "<ol>"
-            "<li><b>Cargar Imagen:</b> Use el botón 📂 o presione <code>Ctrl+O</code> para abrir una imagen térmica BMP original (RGB565 de 240x240px).</li>"
-            "<li><b>Auto-Calibración:</b> Introduzca los valores límite de temperatura (T Min y T Max) impresos en los bordes de la imagen en el panel lateral, y presione <b>⚡ Auto-Cal</b>. El software mapeará el gradiente de la barra lateral automáticamente.</li>"
-            "<li><b>Calibración Manual:</b> Si los colores no coinciden bien, presione <b>🎯 Calibrar</b> y arrastre el cursor sobre la fina barra de colores del borde derecho de la imagen para extraer los colores manualmente.</li>"
-            "<li><b>Medición de Puntos:</b> Haga clic izquierdo en cualquier parte de la imagen térmica para colocar un marcador. Su temperatura se estimará al instante basándose en la calibración y se listará en el panel lateral.</li>"
-            "<li><b>Upscaling (Super-resolución):</b> Seleccione un método (por ejemplo, Lanczos o IA FSRCNN) y un factor de escala (x2, x3, x4) y haga clic en <b>Aplicar Upscale</b> para mejorar significativamente la nitidez de la imagen sin perder la precisión de la temperatura.</li>"
-            "<li><b>Generar Informe:</b> Presione <code>Ctrl+P</code> o el botón de <b>Informe</b> para abrir el configurador. Agregue observaciones, el logo de su empresa, equipo analizado o una fotografía óptica (real) y exporte todo en un PDF estructurado profesionalmente.</li>"
+            "<li><b>Proyectos y Mediciones:</b> Use el botón 📂 para abrir un proyecto (.tcp) o una imagen térmica (BMP). Añada más imágenes al proyecto actual desde <i>Medición -> Nueva Medición...</i> (<code>Ctrl+Shift+N</code>).</li>"
+            "<li><b>Navegar y Reordenar:</b> Utilice los botones Siguiente/Anterior para moverse entre las mediciones activas. En la barra lateral izquierda (con ícono de panel), puede arrastrar y soltar las miniaturas para reordenar el informe.</li>"
+            "<li><b>Calibración:</b> Introduzca las temperaturas máxima y mínima (T Min y T Max) en el panel derecho y presione <b>⚡ Auto-Cal</b>.</li>"
+            "<li><b>Análisis:</b> Haga clic izquierdo sobre la imagen para agregar un marcador de temperatura, o utilice las herramientas de dibujo en la barra superior para enmarcar zonas (rectángulo, círculo, texto).</li>"
+            "<li><b>Super-resolución:</b> Seleccione un factor de escala (x2, x3, x4) en el panel y haga clic en <b>Aplicar Upscale</b> para aumentar la calidad de la imagen usando IA o interpolación avanzada.</li>"
+            "<li><b>Generar Informe PDF:</b> Presione el botón <b>Informe</b> para abrir el configurador. Agregue el logo de su empresa y genere un reporte consolidado multipágina con todas sus mediciones, histogramas y fotos reales.</li>"
             "</ol>"
         )
         QMessageBox.about(self, "Instrucciones de Uso", instructions_text)
@@ -852,7 +871,7 @@ class MainWindow(QMainWindow):
         title_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #ff6b35; font-family: 'Outfit', 'Inter';")
         text_layout.addWidget(title_label)
         
-        version_label = QLabel("Versión 1.1")
+        version_label = QLabel("Versión 1.2")
         version_label.setStyleSheet("font-size: 11px; color: #a0a0b0; font-family: 'Inter';")
         text_layout.addWidget(version_label)
         
@@ -999,7 +1018,8 @@ class MainWindow(QMainWindow):
         self._measurements.append(new_m)
         self._current_measurement_index = len(self._measurements) - 1
 
-        # Actualizar ComboBox de la barra lateral
+        # Actualizar Panel Izquierdo y ComboBox de la barra lateral
+        self.left_sidebar.update_list(self._measurements, self._current_measurement_index)
         names = [m["name"] for m in self._measurements]
         self.sidebar.update_measurement_list(names, self._current_measurement_index)
 
@@ -1045,7 +1065,8 @@ class MainWindow(QMainWindow):
         if self._current_measurement_index >= len(self._measurements):
             self._current_measurement_index = len(self._measurements) - 1
 
-        # Actualizar ComboBox
+        # Actualizar Panel Izquierdo y ComboBox
+        self.left_sidebar.update_list(self._measurements, self._current_measurement_index)
         names = [m["name"] for m in self._measurements]
         self.sidebar.update_measurement_list(names, self._current_measurement_index)
 
@@ -1063,7 +1084,29 @@ class MainWindow(QMainWindow):
             self._save_measurement_state(self._current_measurement_index)
 
         self._current_measurement_index = new_index
+        self.left_sidebar.update_list(self._measurements, self._current_measurement_index)
         self._load_measurement_state(new_index)
+        
+    def _on_measurements_reordered(self, new_order: list):
+        """Maneja el reordenamiento drag & drop de mediciones del panel izquierdo."""
+        reordered_measurements = [self._measurements[i] for i in new_order]
+        
+        # Encontrar el nuevo índice de la medición actualmente activa
+        if 0 <= self._current_measurement_index < len(self._measurements):
+            active_measurement = self._measurements[self._current_measurement_index]
+            try:
+                new_active_index = reordered_measurements.index(active_measurement)
+                self._current_measurement_index = new_active_index
+            except ValueError:
+                pass
+                
+        self._measurements = reordered_measurements
+        
+        # Actualizar la lista en el combobox y panel izquierdo
+        self.left_sidebar.update_list(self._measurements, self._current_measurement_index)
+        names = [m["name"] for m in self._measurements]
+        self.sidebar.update_measurement_list(names, self._current_measurement_index)
+        self.statusBar().showMessage("↕ Orden de mediciones actualizado", 3000)
 
     def _save_measurement_state(self, index: int):
         """Guarda el estado actual del visor y la barra lateral en la medición especificada."""
@@ -1298,6 +1341,7 @@ class MainWindow(QMainWindow):
         self.sidebar.clear_points_table()
         self.sidebar.update_image_info("Sin imagen cargada", (0, 0))
         self.sidebar.set_calibration_status(False)
+        self.left_sidebar.update_list(self._measurements, 0)
         self.sidebar.update_measurement_list(["Medición 1"], 0)
         self.sidebar.update_measurement_fields("Medición 1", 1.0, 0.95, "", "")
 
@@ -1351,6 +1395,9 @@ class MainWindow(QMainWindow):
         try:
             # 1. Preparar metadata.json
             saved_project_info = self._project_info.copy()
+            # Guardar la escala del histograma actual
+            saved_project_info["histogram_scale"] = self.histogram.y_scale_mode
+            
             # Si hay logotipo o imagen del equipo, los guardaremos en la raíz del ZIP y cambiaremos sus rutas a nombres relativos
             logo_name = ""
             if saved_project_info.get("logo_path") and os.path.exists(saved_project_info["logo_path"]):
@@ -1446,7 +1493,7 @@ class MainWindow(QMainWindow):
                     files_to_zip.append((m["real_image_path"], real_name))
 
             metadata = {
-                "project_version": "1.1",
+                "project_version": "1.2",
                 "project_info": saved_project_info,
                 "instrument_info": self._instrument_info,
                 "measurements": measurements_meta
@@ -1617,7 +1664,7 @@ class MainWindow(QMainWindow):
                 }]
 
             else:
-                # Formato de proyecto 1.1 (Multi-Medición)
+                # Formato de proyecto 1.1 / 1.2 (Multi-Medición)
                 self._project_info = metadata.get("project_info", {})
                 self._instrument_info = metadata.get("instrument_info", {})
 
@@ -1718,8 +1765,13 @@ class MainWindow(QMainWindow):
             self._current_project_file = filepath
             self._current_dir = os.path.dirname(filepath)
 
+            # Restaurar la escala del histograma
+            hist_scale = self._project_info.get("histogram_scale", "linear")
+            self.histogram._set_scale_mode(hist_scale)
+
             # Actualizar barra lateral
             names = [m["name"] for m in self._measurements]
+            self.left_sidebar.update_list(self._measurements, 0)
             self.sidebar.update_measurement_list(names, 0)
             self._load_measurement_state(0)
 
