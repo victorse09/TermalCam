@@ -1301,6 +1301,7 @@ class MainWindow(QMainWindow):
             "ambient_temp": 20.0,
             "logo_path": "",
             "equipment_image_path": "",
+            "equipment_image_path2": "",
             "general_observations": "",
             "report_number": ""
         }
@@ -1409,6 +1410,11 @@ class MainWindow(QMainWindow):
                 equip_name = "project_equipment.png"
                 saved_project_info["equipment_image_path"] = equip_name
 
+            equip_name2 = ""
+            if saved_project_info.get("equipment_image_path2") and os.path.exists(saved_project_info["equipment_image_path2"]):
+                equip_name2 = "project_equipment2.png"
+                saved_project_info["equipment_image_path2"] = equip_name2
+
             measurements_meta = []
             
             # Guardamos los archivos a escribir en un dict para procesar después de cerrar el JSON
@@ -1512,6 +1518,9 @@ class MainWindow(QMainWindow):
                 if equip_name and os.path.exists(self._project_info["equipment_image_path"]):
                     zip_proj.write(self._project_info["equipment_image_path"], equip_name)
 
+                if equip_name2 and os.path.exists(self._project_info.get("equipment_image_path2", "")):
+                    zip_proj.write(self._project_info["equipment_image_path2"], equip_name2)
+
                 # Escribir todas las imágenes de mediciones
                 for temp_path, arcname in files_to_zip:
                     zip_proj.write(temp_path, arcname)
@@ -1571,6 +1580,7 @@ class MainWindow(QMainWindow):
                     "ambient_temp": 20.0,
                     "logo_path": "",
                     "equipment_image_path": "",
+                    "equipment_image_path2": "",
                     "general_observations": "",
                     "report_number": ""
                 }
@@ -1674,6 +1684,9 @@ class MainWindow(QMainWindow):
                 
                 if self._project_info.get("equipment_image_path") == "project_equipment.png":
                     self._project_info["equipment_image_path"] = os.path.join(temp_dir, "project_equipment.png")
+                
+                if self._project_info.get("equipment_image_path2") == "project_equipment2.png":
+                    self._project_info["equipment_image_path2"] = os.path.join(temp_dir, "project_equipment2.png")
 
                 self._measurements = []
                 for m_meta in metadata.get("measurements", []):

@@ -295,24 +295,55 @@ class ReportDialog(QDialog):
                 pdf.cell(0, 6, str(val), new_x="LMARGIN", new_y="NEXT")
             pdf.ln(10)
 
-            # Mostrar foto del equipo en portada si existe
+            # Mostrar foto(s) del equipo en portada si existen
             equip_path = self._project_info.get("equipment_image_path", "")
-            if equip_path and os.path.exists(equip_path):
+            equip_path2 = self._project_info.get("equipment_image_path2", "")
+            
+            has_img1 = equip_path and os.path.exists(equip_path)
+            has_img2 = equip_path2 and os.path.exists(equip_path2)
+            
+            if has_img1 or has_img2:
                 try:
                     pdf.set_font("Helvetica", "B", 12)
                     pdf.set_text_color(255, 107, 53)
                     pdf.cell(0, 8, "Equipo / Instalación Bajo Análisis", new_x="LMARGIN", new_y="NEXT")
                     pdf.ln(2)
                     
-                    # Cargar dimensiones para redimensionar de forma responsiva
-                    with Image.open(equip_path) as img:
-                        w, h = img.size
-                    img_w = min(110, 190)
-                    img_h = img_w * h / w
-                    
-                    pdf.image(equip_path, x=(pdf.w - img_w) / 2, w=img_w, h=img_h)
+                    gap = 10
+                    if has_img1 and has_img2:
+                        max_w = (pdf.w - 20 - gap) / 2
+                        x1 = 10
+                        x2 = 10 + max_w + gap
+                        
+                        with Image.open(equip_path) as img1:
+                            w1, h1 = img1.size
+                        with Image.open(equip_path2) as img2:
+                            w2, h2 = img2.size
+                            
+                        img1_h = max_w * h1 / w1
+                        img2_h = max_w * h2 / w2
+                        
+                        current_y = pdf.get_y()
+                        pdf.image(equip_path, x=x1, y=current_y, w=max_w, h=img1_h)
+                        pdf.image(equip_path2, x=x2, y=current_y, w=max_w, h=img2_h)
+                        
+                        pdf.set_y(current_y + max(img1_h, img2_h) + 2)
+                        
+                    elif has_img1:
+                        with Image.open(equip_path) as img:
+                            w, h = img.size
+                        img_w = min(110, 190)
+                        img_h = img_w * h / w
+                        pdf.image(equip_path, x=(pdf.w - img_w) / 2, w=img_w, h=img_h)
+                    elif has_img2:
+                        with Image.open(equip_path2) as img:
+                            w, h = img.size
+                        img_w = min(110, 190)
+                        img_h = img_w * h / w
+                        pdf.image(equip_path2, x=(pdf.w - img_w) / 2, w=img_w, h=img_h)
+                        
                 except Exception as e:
-                    print(f"Error cargando imagen del equipo en portada: {e}")
+                    print(f"Error cargando imágenes del equipo en portada: {e}")
 
         # ── 2. INSTRUMENTACIÓN Y RESUMEN ────────────────────────────────────
         if self.chk_instrument.isChecked():

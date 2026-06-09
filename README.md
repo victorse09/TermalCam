@@ -36,7 +36,7 @@ La **Versión 1.2** perfecciona el formato de proyecto `.tcp` multi-medición in
 
 ### 6. 🛠️ Control de Instrumentación e Información de Proyecto
 * **Ficha Técnica de Cámara**: Menú dedicado para registrar Marca, Modelo y Número de Serie de la cámara termográfica utilizada.
-* **Metadatos de Auditoría**: Permite ingresar Título, Autor, Cliente, Ubicación, e Imagen de Equipo analizado, almacenándolos directamente dentro del archivo de proyecto `.tcp`.
+* **Metadatos de Auditoría**: Permite ingresar Título, Autor, Cliente, Ubicación, y hasta dos Imágenes del Equipo analizado, almacenándolos directamente dentro del archivo de proyecto `.tcp`.
 * **Identificador de Auditoría**: Campo dedicado para registrar el número o código único del **"Informe:"**, facilitando la trazabilidad administrativa.
 * **Observaciones del Proyecto**: Diálogo de texto multilínea para consignar las observaciones, alcances y comentarios generales de la inspección de manera global.
 
@@ -46,7 +46,7 @@ La **Versión 1.2** perfecciona el formato de proyecto `.tcp` multi-medición in
 * **Páginas e Imágenes Snug**: Layout centrado con reordenamiento inteligente: la imagen térmica de alta resolución y las anotaciones comparten una página, mientras la tabla de temperatura y el histograma estadístico se imprimen siempre juntos en la siguiente.
 * **Ajuste Fino de Marca**: Personalización de formato de papel (**Carta**, **A4**, **Oficio**) y nuevo deslizador interactivo de **aclarado de opacidad** para títulos, asegurando que logotipos oscuros resalten perfectamente.
 * **Pies de Página Automatizados**: Inserción constante del pie de página de la suite y número de página en *todas* las hojas (incluyendo la portada de forma uniforme).
-* **Foto de Campo Real**: Espacio dedicado para agregar opcionalmente la imagen real/óptica del equipo tomada con cámara convencional.
+* **Fotos del Equipo en Portada**: Espacio dedicado para agregar opcionalmente hasta dos fotografías ópticas generales del equipo bajo análisis en la primera página, con autoajuste de diseño.
 * **Tabla de Mediciones**: Generación automática de tablas que resumen las lecturas de los puntos marcados (`P1`, `P2`, etc.) con sus respectivas temperaturas, emisividad y observaciones del inspector.
 * **Codificación Robusta**: Compatibilidad total con la codificación de fuentes en PDF (evitando caídas por caracteres no estándar).
 

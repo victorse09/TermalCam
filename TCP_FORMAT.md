@@ -15,6 +15,7 @@ mi_analisis.tcp (Archivo ZIP)
 ├── metadata.json                 # Índice estructurado central de la suite
 ├── project_logo.png              # (Opcional) Logotipo corporativo de la empresa
 ├── project_equipment.png         # (Opcional) Fotografía óptica del equipo bajo análisis
+├── project_equipment2.png        # (Opcional) Segunda fotografía óptica del equipo
 ├── measurement_1_thermal.bmp     # Imagen térmica BMP original (240x240 RGB565) de la Medición 1
 ├── measurement_1_upscaler.png    # (Opcional) Imagen térmica suavizada/escalada de la Medición 1
 ├── measurement_1_real.png        # (Opcional) Fotografía óptica real de la Medición 1
@@ -43,7 +44,8 @@ El archivo `metadata.json` es el "cerebro" del proyecto. Contiene toda la inform
     "time": "14:30:00",
     "ambient_temp": 22.5,
     "logo_path": "project_logo.png",
-    "equipment_image_path": "project_equipment.png"
+    "equipment_image_path": "project_equipment.png",
+    "equipment_image_path2": "project_equipment2.png"
   },
   "instrument_info": {
     "brand": "Mastfuyi",

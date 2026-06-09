@@ -108,6 +108,17 @@ class ProjectInfoDialog(QDialog):
         equip_layout.addWidget(btn_equip)
         form.addRow("Imagen Equipo:", equip_layout)
 
+        # Imagen del equipo 2 (óptica opcional)
+        equip_layout2 = QHBoxLayout()
+        self.edit_equip2 = QLineEdit(self.info.get("equipment_image_path2", ""))
+        self.edit_equip2.setPlaceholderText("Segunda foto óptica del equipo (opcional)")
+        btn_equip2 = QToolButton()
+        btn_equip2.setText("...")
+        btn_equip2.clicked.connect(lambda: self._browse_file(self.edit_equip2, "Seleccionar Segunda Foto del Equipo"))
+        equip_layout2.addWidget(self.edit_equip2)
+        equip_layout2.addWidget(btn_equip2)
+        form.addRow("Imagen Equipo 2:", equip_layout2)
+
         layout.addWidget(info_group)
 
         # Botones
@@ -151,6 +162,7 @@ class ProjectInfoDialog(QDialog):
         self.info["ambient_temp"] = self.spin_temp.value()
         self.info["logo_path"] = self.edit_logo.text()
         self.info["equipment_image_path"] = self.edit_equip.text()
+        self.info["equipment_image_path2"] = self.edit_equip2.text()
 
         self.accept()
 
