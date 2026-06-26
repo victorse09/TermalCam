@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGroupBox,
     QLabel, QLineEdit, QDoubleSpinBox, QPushButton,
     QFileDialog, QFormLayout, QToolButton, QDateEdit, QTimeEdit,
-    QTextEdit
+    QTextEdit, QListWidget, QSplitter, QWidget
 )
 
 
@@ -59,6 +59,7 @@ class ProjectInfoDialog(QDialog):
 
         # Campos de Fecha y Hora
         self.edit_date = QDateEdit()
+        self.edit_date.setStyleSheet("background-color: #2b2b2b; color: #ffffff;")
         self.edit_date.setCalendarPopup(True)
         date_str = self.info.get("date", "")
         if date_str:
@@ -68,6 +69,7 @@ class ProjectInfoDialog(QDialog):
         form.addRow("Fecha Medición:", self.edit_date)
 
         self.edit_time = QTimeEdit()
+        self.edit_time.setStyleSheet("background-color: #2b2b2b; color: #ffffff;")
         time_str = self.info.get("time", "")
         if time_str:
             self.edit_time.setTime(QTime.fromString(time_str, Qt.DateFormat.ISODate))
@@ -284,3 +286,105 @@ class ProjectObservationsDialog(QDialog):
         self.info["general_observations"] = self.edit_obs.toPlainText()
         self.accept()
 
+
+class PointCommentsDialog(QDialog):
+    """Diálogo para editar los comentarios de los puntos de forma expandida."""
+
+    def __init__(self, points: list, initial_index: int = 0, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Editar Comentarios de Puntos")
+        self.setMinimumSize(600, 400)
+        self.points = points  # Referencia o copia, preferible trabajar con copia local de los labels
+        self.comments = {pt.index: (pt.label or "") for pt in points}
+        self.initial_index = initial_index
+        self._setup_ui()
+
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        
+        # Lista de puntos
+        self.list_widget = QListWidget()
+        self.list_widget.setStyleSheet("""
+            QListWidget { background-color: #1a1a2e; border: 1px solid #2a2a45; color: #e0e0e8; border-radius: 4px; }
+            QListWidget::item { padding: 8px; border-bottom: 1px solid #2a2a45; }
+            QListWidget::item:selected { background-color: #3a3a5a; border-left: 3px solid #ff6b35; color: white; }
+        """)
+        for pt in self.points:
+            temp_str = f"{pt.temperature:.1f} °C" if pt.temperature is not None else "---"
+            self.list_widget.addItem(f"P{pt.index} ({temp_str})")
+            
+        self.list_widget.currentRowChanged.connect(self._on_point_selected)
+        splitter.addWidget(self.list_widget)
+
+        # Editor de comentario
+        editor_widget = QWidget()
+        editor_layout = QVBoxLayout(editor_widget)
+        editor_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.lbl_current_point = QLabel("Seleccione un punto")
+        self.lbl_current_point.setStyleSheet("font-weight: bold; color: #ff6b35;")
+        editor_layout.addWidget(self.lbl_current_point)
+        
+        self.text_edit = QTextEdit()
+        self.text_edit.setStyleSheet("""
+            QTextEdit { background-color: #1a1a2e; border: 1px solid #2a2a45; color: #e0e0e8; border-radius: 4px; padding: 8px; }
+        """)
+        self.text_edit.setPlaceholderText("Escriba aquí los comentarios detallados para este punto...")
+        self.text_edit.textChanged.connect(self._on_text_changed)
+        editor_layout.addWidget(self.text_edit)
+        
+        splitter.addWidget(editor_widget)
+        
+        # Ajustar proporciones (1:2)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 2)
+        
+        layout.addWidget(splitter)
+
+        # Botones
+        btn_layout = QHBoxLayout()
+        self.btn_save = QPushButton("Guardar Cambios")
+        self.btn_save.setObjectName("btnPrimary")
+        self.btn_save.setMinimumHeight(35)
+        self.btn_save.clicked.connect(self.accept)
+
+        self.btn_cancel = QPushButton("Cancelar")
+        self.btn_cancel.clicked.connect(self.reject)
+
+        btn_layout.addWidget(self.btn_cancel)
+        btn_layout.addWidget(self.btn_save)
+        layout.addLayout(btn_layout)
+
+        if parent := self.parent():
+            if hasattr(parent, 'styleSheet'):
+                self.setStyleSheet(parent.styleSheet())
+                
+        # Seleccionar índice inicial si existe
+        if self.points:
+            row_to_select = 0
+            for i, pt in enumerate(self.points):
+                if pt.index == self.initial_index:
+                    row_to_select = i
+                    break
+            self.list_widget.setCurrentRow(row_to_select)
+
+    def _on_point_selected(self, row: int):
+        if row < 0 or row >= len(self.points):
+            return
+        pt = self.points[row]
+        self.lbl_current_point.setText(f"Editando comentario de P{pt.index}")
+        
+        # Cargar comentario sin emitir señal
+        self.text_edit.blockSignals(True)
+        self.text_edit.setPlainText(self.comments.get(pt.index, ""))
+        self.text_edit.blockSignals(False)
+
+    def _on_text_changed(self):
+        row = self.list_widget.currentRow()
+        if row < 0 or row >= len(self.points):
+            return
+        pt = self.points[row]
+        self.comments[pt.index] = self.text_edit.toPlainText().strip()

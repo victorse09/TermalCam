@@ -194,7 +194,7 @@ class ReportDialog(QDialog):
         from PIL import Image
 
         class ThermalReportPDF(FPDF):
-            def __init__(self, project_info: dict, version_str: str = "v1.2", has_cover: bool = True, format_val: str = "a4"):
+            def __init__(self, project_info: dict, version_str: str = "v1.3", has_cover: bool = True, format_val: str = "a4"):
                 super().__init__(format=format_val)
                 self._project_info = project_info
                 self.version_str = version_str
@@ -214,7 +214,7 @@ class ReportDialog(QDialog):
                 # Número de página sin fecha
                 self.cell(0, 5, f"Página {self.page_no()}", align='R')
 
-        pdf = ThermalReportPDF(self._project_info, version_str="v1.2", has_cover=self.chk_cover.isChecked(), format_val=format_str)
+        pdf = ThermalReportPDF(self._project_info, version_str="v1.3", has_cover=self.chk_cover.isChecked(), format_val=format_str)
         pdf.set_auto_page_break(auto=True, margin=15)
         
         # Archivos temporales para limpiar al final
@@ -310,37 +310,59 @@ class ReportDialog(QDialog):
                     pdf.ln(2)
                     
                     gap = 10
+                    limit_y = pdf.h - 20
+                    current_y = pdf.get_y()
+                    available_h = max(10.0, limit_y - current_y)
+                    
                     if has_img1 and has_img2:
-                        max_w = (pdf.w - 20 - gap) / 2
-                        x1 = 10
-                        x2 = 10 + max_w + gap
-                        
                         with Image.open(equip_path) as img1:
                             w1, h1 = img1.size
                         with Image.open(equip_path2) as img2:
                             w2, h2 = img2.size
-                            
-                        img1_h = max_w * h1 / w1
-                        img2_h = max_w * h2 / w2
                         
-                        current_y = pdf.get_y()
-                        pdf.image(equip_path, x=x1, y=current_y, w=max_w, h=img1_h)
-                        pdf.image(equip_path2, x=x2, y=current_y, w=max_w, h=img2_h)
+                        r1 = w1 / h1
+                        r2 = w2 / h2
                         
-                        pdf.set_y(current_y + max(img1_h, img2_h) + 2)
+                        max_w_total = pdf.w - 20
+                        H_max_width = (max_w_total - gap) / (r1 + r2)
+                        H = min(available_h, H_max_width)
+                        
+                        w1_new = H * r1
+                        w2_new = H * r2
+                        
+                        # Center the two images horizontally
+                        total_width = w1_new + w2_new + gap
+                        x1 = (pdf.w - total_width) / 2
+                        x2 = x1 + w1_new + gap
+                        
+                        pdf.image(equip_path, x=x1, y=current_y, w=w1_new, h=H)
+                        pdf.image(equip_path2, x=x2, y=current_y, w=w2_new, h=H)
+                        
+                        pdf.set_y(current_y + H + 2)
                         
                     elif has_img1:
                         with Image.open(equip_path) as img:
                             w, h = img.size
-                        img_w = min(110, 190)
-                        img_h = img_w * h / w
-                        pdf.image(equip_path, x=(pdf.w - img_w) / 2, w=img_w, h=img_h)
+                        r = w / h
+                        
+                        max_w = min(110.0, pdf.w - 20)
+                        H = min(available_h, max_w / r)
+                        w_new = H * r
+                        
+                        pdf.image(equip_path, x=(pdf.w - w_new) / 2, y=current_y, w=w_new, h=H)
+                        pdf.set_y(current_y + H + 2)
+                        
                     elif has_img2:
                         with Image.open(equip_path2) as img:
                             w, h = img.size
-                        img_w = min(110, 190)
-                        img_h = img_w * h / w
-                        pdf.image(equip_path2, x=(pdf.w - img_w) / 2, w=img_w, h=img_h)
+                        r = w / h
+                        
+                        max_w = min(110.0, pdf.w - 20)
+                        H = min(available_h, max_w / r)
+                        w_new = H * r
+                        
+                        pdf.image(equip_path2, x=(pdf.w - w_new) / 2, y=current_y, w=w_new, h=H)
+                        pdf.set_y(current_y + H + 2)
                         
                 except Exception as e:
                     print(f"Error cargando imágenes del equipo en portada: {e}")
@@ -457,6 +479,13 @@ class ReportDialog(QDialog):
             pdf.set_font("Helvetica", "", 9)
             pdf.cell(40, 5, f"{m['emissivity']:.2f}")
             
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.cell(15, 5, "Paleta:")
+            pdf.set_font("Helvetica", "", 9)
+            pdf.cell(35, 5, m.get("palette", "Ironbow1"))
+            
+            pdf.ln(5)
+
             pdf.set_font("Helvetica", "B", 9)
             pdf.cell(30, 5, "Rango Calibración:")
             pdf.set_font("Helvetica", "", 9)
@@ -748,8 +777,8 @@ class ReportDialog(QDialog):
         h_target, w_target = img.shape[:2]
         h_curr, w_curr = current_size
 
-        # Tamaño de escala para dibujar según la resolución del destino (ajustado para ser compacto y estético)
-        scale_factor = w_target / 240.0
+        # Tamaño de escala para dibujar según la resolución del destino (reducido a la mitad)
+        scale_factor = (w_target / 240.0) * 0.5
         size = int(max(4, round(3.5 * scale_factor)))
         thickness = int(max(1, round(0.8 * scale_factor)))
         font_scale = 0.23 * scale_factor
@@ -804,7 +833,7 @@ class ReportDialog(QDialog):
         h_target, w_target = img.shape[:2]
         h_curr, w_curr = current_size
 
-        scale_factor = w_target / 240.0
+        scale_factor = (w_target / 240.0) * 0.5
         thickness = int(max(1, round(2 * scale_factor)))
         font_scale = 0.45 * scale_factor
 

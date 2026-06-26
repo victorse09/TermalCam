@@ -1,13 +1,13 @@
 @echo off
 :: =====================================================================
 :: ThermalCam Analyzer - Windows Build Script
-:: Genera la versión ejecutable para Windows 10 (ThermalCam1_1)
+:: Genera la versión ejecutable para Windows 10 (ThermalCam1_3)
 :: =====================================================================
-title ThermalCam Analyzer - Compilador Windows v1.1
+title ThermalCam Analyzer - Compilador Windows v1.3
 
 echo.
 echo =====================================================================
-echo  Iniciando proceso de compilación para ThermalCam Analyzer v1.1
+echo  Iniciando proceso de compilación para ThermalCam Analyzer v1.3
 echo =====================================================================
 echo.
 
@@ -41,7 +41,7 @@ if %errorlevel% neq 0 (
 :: Esto mantiene las carpetas "resources" y "models" en la raíz del ejecutable,
 :: permitiendo que las hojas de estilo QSS carguen los iconos correctamente a nivel de OS.
 echo [3/4] Compilando la aplicación con PyInstaller...
-pyinstaller --noconfirm --onedir --windowed --name="ThermalCam1_1" ^
+python -m PyInstaller --noconfirm --onedir --windowed --name="ThermalCam1_3" ^
     --add-data "resources;resources" ^
     --add-data "models;models" ^
     main.py
@@ -52,6 +52,15 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+:: Copiar recursos y modelos a la raíz de la carpeta de distribución para compatibilidad con rutas relativas
+echo [4/4] Copiando recursos y modelos a la raíz del directorio de distribución...
+xcopy /E /I /Y "resources" "dist\ThermalCam1_3\resources"
+xcopy /E /I /Y "models" "dist\ThermalCam1_3\models"
+
+if %errorlevel% neq 0 (
+    echo [WARNING] No se pudieron copiar algunos recursos a la raíz de la carpeta dist.
+)
+
 :: 5. Finalizado
 echo.
 echo =====================================================================
@@ -59,13 +68,13 @@ echo  ¡Compilación completada exitosamente!
 echo =====================================================================
 echo.
 echo El ejecutable y todos sus recursos se han generado en la carpeta:
-echo   dist\ThermalCam1_1\
+echo   dist\ThermalCam1_3\
 echo.
 echo Para ejecutar la aplicación en tu oficina con Windows 10:
-echo 1. Copia la carpeta completa "dist\ThermalCam1_1" a tu equipo.
-echo 2. Abre la carpeta y ejecuta "ThermalCam1_1.exe".
+echo 1. Copia la carpeta completa "dist\ThermalCam1_3" a tu equipo.
+echo 2. Abre la carpeta y ejecuta "ThermalCam1_3.exe".
 echo.
-echo Nota: No separes el archivo "ThermalCam1_1.exe" de su carpeta,
+echo Nota: No separes el archivo "ThermalCam1_3.exe" de su carpeta,
 echo ya que depende de las bibliotecas y recursos incluidos en ella.
 echo.
 pause

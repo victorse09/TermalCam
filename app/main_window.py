@@ -128,7 +128,7 @@ class MainWindow(QMainWindow):
         methods = self.upscaler.get_available_methods()
         self.sidebar = SidebarPanel(available_methods=methods)
         self.sidebar.setMinimumWidth(280)
-        self.sidebar.setMaximumWidth(400)
+        self.sidebar.setMaximumWidth(800)
 
         h_splitter.addWidget(self.left_sidebar)
         h_splitter.addWidget(self.viewer)
@@ -434,6 +434,30 @@ class MainWindow(QMainWindow):
         self.sidebar.real_image_removed.connect(self._on_real_image_removed)
         self.sidebar.show_labels_toggled.connect(self._on_show_labels_toggled)
         self.sidebar.point_comment_changed.connect(self._on_point_comment_changed)
+        self.sidebar.measurement_palette_changed.connect(self._on_measurement_palette_changed)
+        self.sidebar.open_comments_editor_requested.connect(self._on_open_comments_editor_requested)
+
+    def _on_measurement_palette_changed(self, palette: str):
+        """Actualiza la paleta de la medición actual."""
+        if 0 <= self._current_measurement_index < len(self._measurements):
+            self._measurements[self._current_measurement_index]["palette"] = palette
+
+    def _on_open_comments_editor_requested(self, initial_index: int):
+        """Abre el diálogo avanzado de edición de comentarios de puntos."""
+        points = list(self.viewer.get_points())
+        if not points:
+            return
+        from .project_dialogs import PointCommentsDialog
+        dialog = PointCommentsDialog(points, initial_index=initial_index, parent=self)
+        if dialog.exec():
+            # Aplicar cambios a los puntos
+            for pt in points:
+                if pt.index in dialog.comments:
+                    pt.label = dialog.comments[pt.index]
+                    self.viewer.update_point_label(pt.index, pt.label)
+            self.sidebar.refresh_points_table(points)
+            if 0 <= self._current_measurement_index < len(self._measurements):
+                self._save_measurement_state(self._current_measurement_index)
 
     def _on_show_labels_toggled(self, checked: bool):
         """Alterna la visibilidad de los comentarios de los puntos en el visor."""
@@ -826,7 +850,7 @@ class MainWindow(QMainWindow):
     def _show_instructions(self):
         """Muestra las instrucciones de uso del programa."""
         instructions_text = (
-            "<h3>Guía de Uso de ThermalCam Analyzer v1.2</h3>"
+            "<h3>Guía de Uso de ThermalCam Analyzer v1.3</h3>"
             "<ol>"
             "<li><b>Proyectos y Mediciones:</b> Use el botón 📂 para abrir un proyecto (.tcp) o una imagen térmica (BMP). Añada más imágenes al proyecto actual desde <i>Medición -> Nueva Medición...</i> (<code>Ctrl+Shift+N</code>).</li>"
             "<li><b>Navegar y Reordenar:</b> Utilice los botones Siguiente/Anterior para moverse entre las mediciones activas. En la barra lateral izquierda (con ícono de panel), puede arrastrar y soltar las miniaturas para reordenar el informe.</li>"
@@ -871,7 +895,7 @@ class MainWindow(QMainWindow):
         title_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #ff6b35; font-family: 'Outfit', 'Inter';")
         text_layout.addWidget(title_label)
         
-        version_label = QLabel("Versión 1.2")
+        version_label = QLabel("Versión 1.3")
         version_label.setStyleSheet("font-size: 11px; color: #a0a0b0; font-family: 'Inter';")
         text_layout.addWidget(version_label)
         
@@ -995,6 +1019,7 @@ class MainWindow(QMainWindow):
             "name": name,
             "distance": 1.0,
             "emissivity": 0.95,
+            "palette": "Ironbow1",
             "observations": "",
             "real_image_path": "",
             "thermal_file_path": filepath,
@@ -1185,7 +1210,8 @@ class MainWindow(QMainWindow):
             distance=m["distance"],
             emissivity=m["emissivity"],
             observations=m["observations"],
-            real_image_path=m["real_image_path"]
+            real_image_path=m["real_image_path"],
+            palette=m.get("palette", "Ironbow1")
         )
 
         # Cargar configuraciones de upscale
@@ -1463,6 +1489,7 @@ class MainWindow(QMainWindow):
                     "name": m["name"],
                     "distance": m["distance"],
                     "emissivity": m["emissivity"],
+                    "palette": m.get("palette", "Ironbow1"),
                     "observations": m["observations"],
                     "thermal_file_name": thermal_name,
                     "upscaled_file_name": upscaled_name,
@@ -1752,6 +1779,7 @@ class MainWindow(QMainWindow):
                         "name": m_meta["name"],
                         "distance": m_meta.get("distance", 1.0),
                         "emissivity": m_meta.get("emissivity", 0.95),
+                        "palette": m_meta.get("palette", "Ironbow1"),
                         "observations": m_meta.get("observations", ""),
                         "real_image_path": real_image_path,
                         "thermal_file_path": bmp_path,

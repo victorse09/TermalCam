@@ -24,7 +24,7 @@ class MeasurementSidebar(QWidget):
     def _setup_ui(self):
         self.setObjectName("measurementSidebar")
         self.setMinimumWidth(220)
-        self.setMaximumWidth(300)
+        self.setMaximumWidth(600)
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
@@ -36,7 +36,7 @@ class MeasurementSidebar(QWidget):
         layout.addLayout(header_layout)
         
         self.list_widget = QListWidget()
-        self.list_widget.setIconSize(QSize(60, 60))
+        self.list_widget.setIconSize(QSize(130, 60))
         self.list_widget.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.list_widget.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.list_widget.setStyleSheet("""
@@ -66,33 +66,45 @@ class MeasurementSidebar(QWidget):
 
     def update_list(self, measurements, current_index):
         """Actualiza la lista visual con las mediciones actuales."""
+        import os
+        from PyQt6.QtGui import QPainter
         self._is_updating = True
         self.list_widget.clear()
         
         for i, m in enumerate(measurements):
             name = m["name"]
-            # Mostrar un asterisco o algo si está vacía? No, solo el nombre.
             item_text = f"{i+1}. {name}"
             item = QListWidgetItem(item_text)
             item.setData(Qt.ItemDataRole.UserRole, i)
             
-            # Crear miniatura si la imagen existe
+            combined_pixmap = QPixmap(130, 60)
+            combined_pixmap.fill(Qt.GlobalColor.transparent)
+            painter = QPainter(combined_pixmap)
+            
+            x_offset = 0
+            
+            # 1. Dibujar Imagen Real (si existe)
+            real_path = m.get("real_image_path", "")
+            if real_path and os.path.exists(real_path):
+                real_pix = QPixmap(real_path).scaled(
+                    60, 60, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+                )
+                painter.drawPixmap(0, (60 - real_pix.height()) // 2, real_pix)
+                x_offset = 70
+                
+            # 2. Dibujar Imagen Térmica
             if m.get("original_image") is not None:
                 img_rgb = m["original_image"]
                 h, w, ch = img_rgb.shape
                 bytes_per_line = ch * w
-                # Es importante que el array img_rgb se mantenga vivo
                 qimg = QImage(img_rgb.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
-                pixmap = QPixmap.fromImage(qimg).scaled(
+                therm_pix = QPixmap.fromImage(qimg).scaled(
                     60, 60, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
                 )
-                item.setIcon(QIcon(pixmap))
-            else:
-                # Icono por defecto o miniatura vacía
-                pixmap = QPixmap(60, 60)
-                pixmap.fill(Qt.GlobalColor.black)
-                item.setIcon(QIcon(pixmap))
-                
+                painter.drawPixmap(x_offset, (60 - therm_pix.height()) // 2, therm_pix)
+            
+            painter.end()
+            item.setIcon(QIcon(combined_pixmap))
             self.list_widget.addItem(item)
             
         if 0 <= current_index < self.list_widget.count():

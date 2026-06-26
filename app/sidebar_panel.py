@@ -4,7 +4,7 @@ Controles de medición, temperatura, upscaling, observaciones e informes.
 """
 
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QColor, QIcon
+from PyQt6.QtGui import QFont, QColor, QIcon, QPixmap
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
     QLabel, QDoubleSpinBox, QPushButton, QComboBox,
@@ -35,6 +35,8 @@ class SidebarPanel(QWidget):
     observations_changed = pyqtSignal(str)
     real_image_loaded = pyqtSignal(str)
     real_image_removed = pyqtSignal()
+    measurement_palette_changed = pyqtSignal(str)
+    open_comments_editor_requested = pyqtSignal(int)
 
     def __init__(self, available_methods: list = None, parent=None):
         super().__init__(parent)
@@ -137,6 +139,21 @@ class SidebarPanel(QWidget):
         self.edit_measurement_name.textChanged.connect(self.measurement_name_changed.emit)
         self.spin_distance.valueChanged.connect(self.measurement_distance_changed.emit)
         self.spin_emissivity.valueChanged.connect(self.measurement_emissivity_changed.emit)
+
+        # 5. Paleta de Visualización
+        row_palette = QHBoxLayout()
+        row_palette.addWidget(QLabel("Paleta:"))
+        self.combo_palette = QComboBox()
+        self.combo_palette.addItems([
+            "Ironbow1", "WhiteHot", "BlackHot", "Ironbow2", 
+            "Rainbow", "Fusion1", "Fusion2", "IceFire", 
+            "Rain", "Sepia", "Color1", "Color2", "GreenHot", 
+            "RedHot", "DeepBlue"
+        ])
+        row_palette.addWidget(self.combo_palette)
+        layout.addLayout(row_palette)
+        
+        self.combo_palette.currentTextChanged.connect(self.measurement_palette_changed.emit)
 
         self._layout.addWidget(group)
 
@@ -243,6 +260,7 @@ class SidebarPanel(QWidget):
             QTableWidget.SelectionBehavior.SelectRows)
         self.table_points.setMinimumHeight(150)
         self.table_points.itemChanged.connect(self._on_table_item_changed)
+        self.table_points.cellClicked.connect(self._on_table_cell_clicked)
         layout.addWidget(self.table_points)
 
         # Checkbox para mostrar etiquetas en imagen
@@ -297,9 +315,20 @@ class SidebarPanel(QWidget):
         row_real.addWidget(self.btn_remove_real_image)
         layout.addLayout(row_real)
 
+        status_layout = QHBoxLayout()
         self.lbl_real_image_status = QLabel("❌ Sin foto real adjunta")
         self.lbl_real_image_status.setStyleSheet("color: #8888a0; font-size: 11px;")
-        layout.addWidget(self.lbl_real_image_status)
+        
+        self.lbl_real_image_thumb = QLabel()
+        self.lbl_real_image_thumb.setFixedSize(60, 45)
+        self.lbl_real_image_thumb.setStyleSheet("border: 1px solid #2a2a45; background-color: #1a1a2e;")
+        self.lbl_real_image_thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_real_image_thumb.hide()
+
+        status_layout.addWidget(self.lbl_real_image_status)
+        status_layout.addWidget(self.lbl_real_image_thumb)
+        status_layout.addStretch()
+        layout.addLayout(status_layout)
 
         self._layout.addWidget(group)
 
@@ -351,7 +380,7 @@ class SidebarPanel(QWidget):
     # ── Métodos públicos para MainWindow ────────────────────
 
     def update_measurement_fields(self, name: str, distance: float, emissivity: float,
-                                  observations: str, real_image_path: str):
+                                  observations: str, real_image_path: str, palette: str = "Ironbow1"):
         """Actualiza los inputs de medición bloqueando señales temporalmente."""
         # Nombre
         self.edit_measurement_name.blockSignals(True)
@@ -373,6 +402,13 @@ class SidebarPanel(QWidget):
         self.txt_observations.setText(observations)
         self.txt_observations.blockSignals(True)
 
+        # Paleta
+        self.combo_palette.blockSignals(True)
+        idx = self.combo_palette.findText(palette)
+        if idx >= 0:
+            self.combo_palette.setCurrentIndex(idx)
+        self.combo_palette.blockSignals(False)
+
         # Liberar todas las señales
         self.edit_measurement_name.blockSignals(False)
         self.spin_distance.blockSignals(False)
@@ -381,15 +417,23 @@ class SidebarPanel(QWidget):
 
         # Foto Real
         if real_image_path:
-            self.lbl_real_image_status.setText(f"✅ Foto: {real_image_path.split('/')[-1]}")
+            filename = real_image_path.replace('\\', '/').split('/')[-1]
+            self.lbl_real_image_status.setText(f"✅ Foto: {filename}")
             self.lbl_real_image_status.setStyleSheet("color: #06d6a0; font-size: 11px;")
             self.btn_load_real_image.setText("Cambiar Foto Real")
             self.btn_remove_real_image.setVisible(True)
+            # Cargar miniatura
+            pixmap = QPixmap(real_image_path)
+            if not pixmap.isNull():
+                self.lbl_real_image_thumb.setPixmap(pixmap.scaled(self.lbl_real_image_thumb.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+                self.lbl_real_image_thumb.show()
         else:
             self.lbl_real_image_status.setText("❌ Sin foto real adjunta")
             self.lbl_real_image_status.setStyleSheet("color: #8888a0; font-size: 11px;")
             self.btn_load_real_image.setText("Cargar Imagen Real")
             self.btn_remove_real_image.setVisible(False)
+            self.lbl_real_image_thumb.clear()
+            self.lbl_real_image_thumb.hide()
 
     def update_measurement_list(self, names: list, current_index: int):
         """(Deprecado) El selector de lista ahora está en MeasurementSidebar."""
@@ -476,6 +520,20 @@ class SidebarPanel(QWidget):
         try:
             pt_index = int(id_text.replace("P", ""))
             self.point_comment_changed.emit(pt_index, item.text().strip())
+        except:
+            pass
+
+    def _on_table_cell_clicked(self, row: int, col: int):
+        """Abre el editor de comentarios cuando se hace click en la columna correspondiente."""
+        if col != 5:
+            return
+        id_item = self.table_points.item(row, 0)
+        if not id_item:
+            return
+        id_text = id_item.text()
+        try:
+            pt_index = int(id_text.replace("P", ""))
+            self.open_comments_editor_requested.emit(pt_index)
         except:
             pass
 
