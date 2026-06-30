@@ -194,7 +194,7 @@ class ReportDialog(QDialog):
         from PIL import Image
 
         class ThermalReportPDF(FPDF):
-            def __init__(self, project_info: dict, version_str: str = "v1.3", has_cover: bool = True, format_val: str = "a4"):
+            def __init__(self, project_info: dict, version_str: str = "v1.4", has_cover: bool = True, format_val: str = "a4"):
                 super().__init__(format=format_val)
                 self._project_info = project_info
                 self.version_str = version_str
@@ -214,7 +214,7 @@ class ReportDialog(QDialog):
                 # Número de página sin fecha
                 self.cell(0, 5, f"Página {self.page_no()}", align='R')
 
-        pdf = ThermalReportPDF(self._project_info, version_str="v1.3", has_cover=self.chk_cover.isChecked(), format_val=format_str)
+        pdf = ThermalReportPDF(self._project_info, version_str="v1.4", has_cover=self.chk_cover.isChecked(), format_val=format_str)
         pdf.set_auto_page_break(auto=True, margin=15)
         
         # Archivos temporales para limpiar al final
@@ -277,12 +277,19 @@ class ReportDialog(QDialog):
             pdf.set_font("Helvetica", "B", 10)
             pdf.set_text_color(60, 60, 70)
             
+            # Formatear la fecha a DD-MM-YYYY
+            raw_date = self._project_info.get("date", "---")
+            if raw_date != "---" and "-" in raw_date:
+                parts = raw_date.split("-")
+                if len(parts) == 3:
+                    raw_date = f"{parts[2]}-{parts[1]}-{parts[0]}"
+                    
             metadata_rows = [
                 ("Cliente / Equipo:", self._project_info.get("client", "---")),
                 ("Proyecto / Planta:", self._project_info.get("project_name", "---")),
                 ("Ubicación Física:", self._project_info.get("location", "---")),
                 ("Autor / Analista:", self._project_info.get("author", "---")),
-                ("Fecha de Medición:", self._project_info.get("date", "---")),
+                ("Fecha de Medición:", raw_date),
                 ("Hora de Medición:", self._project_info.get("time", "---")),
                 ("Temp. Ambiente:", f"{self._project_info.get('ambient_temp', 20.0):.1f} °C"),
                 ("Informe:", self._project_info.get("report_number", "---")),

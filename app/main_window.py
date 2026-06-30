@@ -22,11 +22,12 @@ from PyQt6.QtWidgets import (
 from .thermal_analyzer import ThermalAnalyzer, ThermalPoint, load_mastfuyi_bmp
 from .upscaler import ImageUpscaler
 from .image_viewer import ThermalImageViewer, AnnotationItem
-from .project_dialogs import ProjectInfoDialog, InstrumentInfoDialog, ProjectObservationsDialog
+from .project_dialogs import ProjectInfoDialog, InstrumentInfoDialog, ProjectObservationsDialog, ProjectHeaderDialog, HeaderExportDialog
 from .histogram_widget import HistogramWidget
 from .sidebar_panel import SidebarPanel
 from .measurement_sidebar import MeasurementSidebar
 from .report_dialog import ReportDialog
+from .header_pdf import generate_header_pdf
 from .styles import DARK_THEME
 
 
@@ -91,6 +92,15 @@ class MainWindow(QMainWindow):
         }
         self._measurements = []
         self._current_measurement_index = -1
+        
+        # Datos para cabecera independiente
+        self._header_info = {
+            "informe": "",
+            "cliente": "",
+            "fecha": "",
+            "referencia": "",
+            "contenido": ""
+        }
 
         self._setup_ui()
         self._setup_menu()
@@ -218,6 +228,10 @@ class MainWindow(QMainWindow):
         act_proj_obs.triggered.connect(self._show_project_observations_dialog)
         project_menu.addAction(act_proj_obs)
 
+        act_proj_header = QAction("Cabecera de Proyecto...", self)
+        act_proj_header.triggered.connect(self._show_header_info_dialog)
+        project_menu.addAction(act_proj_header)
+
         # ── Medición ──────────────────────────────────
         meas_menu = menubar.addMenu("&Medición")
 
@@ -269,6 +283,10 @@ class MainWindow(QMainWindow):
         act_report.setShortcut(QKeySequence("Ctrl+P"))
         act_report.triggered.connect(self._generate_report)
         report_menu.addAction(act_report)
+
+        act_header_report = QAction(QIcon("resources/icons/report.svg"), "Generar Cabecera de Informe PDF...", self)
+        act_header_report.triggered.connect(self._generate_header_pdf)
+        report_menu.addAction(act_header_report)
 
         # ── Ayuda ───────────────────────────────────────
         help_menu = menubar.addMenu("&Ayuda")
@@ -850,7 +868,7 @@ class MainWindow(QMainWindow):
     def _show_instructions(self):
         """Muestra las instrucciones de uso del programa."""
         instructions_text = (
-            "<h3>Guía de Uso de ThermalCam Analyzer v1.3</h3>"
+            "<h3>Guía de Uso de ThermalCam Analyzer v1.4</h3>"
             "<ol>"
             "<li><b>Proyectos y Mediciones:</b> Use el botón 📂 para abrir un proyecto (.tcp) o una imagen térmica (BMP). Añada más imágenes al proyecto actual desde <i>Medición -> Nueva Medición...</i> (<code>Ctrl+Shift+N</code>).</li>"
             "<li><b>Navegar y Reordenar:</b> Utilice los botones Siguiente/Anterior para moverse entre las mediciones activas. En la barra lateral izquierda (con ícono de panel), puede arrastrar y soltar las miniaturas para reordenar el informe.</li>"
@@ -895,7 +913,7 @@ class MainWindow(QMainWindow):
         title_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #ff6b35; font-family: 'Outfit', 'Inter';")
         text_layout.addWidget(title_label)
         
-        version_label = QLabel("Versión 1.3")
+        version_label = QLabel("Versión 1.4")
         version_label.setStyleSheet("font-size: 11px; color: #a0a0b0; font-family: 'Inter';")
         text_layout.addWidget(version_label)
         
@@ -967,9 +985,49 @@ class MainWindow(QMainWindow):
     def _show_project_info_dialog(self):
         """Muestra el diálogo para editar la información del proyecto."""
         dialog = ProjectInfoDialog(self._project_info, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
+        if dialog.exec():
             self._project_info = dialog.info
-            self.statusBar().showMessage("✅ Información de proyecto actualizada", 3000)
+            self._update_window_title()
+
+    def _show_header_info_dialog(self):
+        """Abre el diálogo para configurar la información de la cabecera del proyecto."""
+        # Pre-llenar si están vacíos basándonos en _project_info
+        if not self._header_info.get("cliente") and self._project_info.get("client"):
+            self._header_info["cliente"] = self._project_info["client"]
+        if not self._header_info.get("fecha") and self._project_info.get("date"):
+            self._header_info["fecha"] = self._project_info["date"]
+
+        dialog = ProjectHeaderDialog(self._header_info, self)
+        if dialog.exec():
+            self._header_info = dialog.header_info
+
+    def _generate_header_pdf(self):
+        """Genera el documento PDF de la cabecera independiente."""
+        export_dialog = HeaderExportDialog(self)
+        if not export_dialog.exec():
+            return
+            
+        format_val = export_dialog.format_val
+        lightness = export_dialog.lightness
+
+        filepath, _ = QFileDialog.getSaveFileName(
+            self, "Guardar Cabecera de Informe PDF", "", "Archivos PDF (*.pdf)"
+        )
+        if filepath:
+            if not filepath.lower().endswith('.pdf'):
+                filepath += '.pdf'
+            
+            try:
+                # Pre-llenar cliente y fecha si están vacíos
+                if not self._header_info.get("cliente") and self._project_info.get("client"):
+                    self._header_info["cliente"] = self._project_info["client"]
+                if not self._header_info.get("fecha") and self._project_info.get("date"):
+                    self._header_info["fecha"] = self._project_info["date"]
+
+                generate_header_pdf(filepath, self._project_info, self._header_info, lightness=lightness, format_val=format_val)
+                QMessageBox.information(self, "Éxito", f"Cabecera de informe guardada en:\n{filepath}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Error al generar la cabecera PDF:\n{str(e)}")
 
     def _show_instrument_info_dialog(self):
         """Muestra el diálogo para editar el instrumento de medición."""
@@ -1529,6 +1587,7 @@ class MainWindow(QMainWindow):
                 "project_version": "1.2",
                 "project_info": saved_project_info,
                 "instrument_info": self._instrument_info,
+                "header_info": self._header_info,
                 "measurements": measurements_meta
             }
 
@@ -1615,6 +1674,13 @@ class MainWindow(QMainWindow):
                     "brand": "Mastfuyi",
                     "model": "",
                     "serial_number": ""
+                }
+                self._header_info = {
+                    "informe": "",
+                    "cliente": "",
+                    "fecha": "",
+                    "referencia": "",
+                    "contenido": ""
                 }
 
                 # Cargar la imagen original
@@ -1704,6 +1770,13 @@ class MainWindow(QMainWindow):
                 # Formato de proyecto 1.1 / 1.2 (Multi-Medición)
                 self._project_info = metadata.get("project_info", {})
                 self._instrument_info = metadata.get("instrument_info", {})
+                self._header_info = metadata.get("header_info", {
+                    "informe": "",
+                    "cliente": "",
+                    "fecha": "",
+                    "referencia": "",
+                    "contenido": ""
+                })
 
                 # Resolver rutas del logotipo y la imagen del equipo a la carpeta temporal unzipped
                 if self._project_info.get("logo_path") == "project_logo.png":

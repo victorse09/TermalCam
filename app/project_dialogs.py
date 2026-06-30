@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGroupBox,
     QLabel, QLineEdit, QDoubleSpinBox, QPushButton,
     QFileDialog, QFormLayout, QToolButton, QDateEdit, QTimeEdit,
-    QTextEdit, QListWidget, QSplitter, QWidget
+    QTextEdit, QListWidget, QSplitter, QWidget, QComboBox, QSlider
 )
 
 
@@ -388,3 +388,123 @@ class PointCommentsDialog(QDialog):
             return
         pt = self.points[row]
         self.comments[pt.index] = self.text_edit.toPlainText().strip()
+
+
+class ProjectHeaderDialog(QDialog):
+    """Diálogo para configurar los datos de la cabecera independiente."""
+
+    def __init__(self, header_info: dict, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Cabecera de Proyecto")
+        self.setMinimumSize(450, 300)
+        self.header_info = header_info.copy()
+        self._setup_ui()
+
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+
+        group = QGroupBox("Datos para Cabecera de Informe PDF")
+        form = QFormLayout(group)
+        form.setSpacing(10)
+
+        self.edit_informe = QLineEdit(self.header_info.get("informe", ""))
+        self.edit_informe.setPlaceholderText("Número o código de informe")
+        form.addRow("Informe:", self.edit_informe)
+
+        self.edit_client = QLineEdit(self.header_info.get("cliente", ""))
+        self.edit_client.setPlaceholderText("Información del Cliente")
+        form.addRow("Cliente:", self.edit_client)
+
+        self.edit_date = QDateEdit()
+        self.edit_date.setStyleSheet("background-color: #2b2b2b; color: #ffffff;")
+        self.edit_date.setCalendarPopup(True)
+        date_str = self.header_info.get("fecha", "")
+        if date_str:
+            self.edit_date.setDate(QDate.fromString(date_str, Qt.DateFormat.ISODate))
+        else:
+            self.edit_date.setDate(QDate.currentDate())
+        form.addRow("Fecha:", self.edit_date)
+
+        self.edit_ref = QLineEdit(self.header_info.get("referencia", ""))
+        self.edit_ref.setPlaceholderText("Referencia del documento")
+        form.addRow("Referencia:", self.edit_ref)
+
+        self.edit_content = QTextEdit(self.header_info.get("contenido", ""))
+        self.edit_content.setPlaceholderText("Contenido de la cabecera...")
+        form.addRow("Contenido:", self.edit_content)
+
+        layout.addWidget(group)
+
+        # Botones
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        btn_cancel = QPushButton("Cancelar")
+        btn_cancel.clicked.connect(self.reject)
+        btn_save = QPushButton("Guardar")
+        btn_save.setDefault(True)
+        btn_save.clicked.connect(self.accept)
+        btn_layout.addWidget(btn_cancel)
+        btn_layout.addWidget(btn_save)
+        layout.addLayout(btn_layout)
+
+    def accept(self):
+        self.header_info["informe"] = self.edit_informe.text().strip()
+        self.header_info["cliente"] = self.edit_client.text().strip()
+        self.header_info["fecha"] = self.edit_date.date().toString(Qt.DateFormat.ISODate)
+        self.header_info["referencia"] = self.edit_ref.text().strip()
+        self.header_info["contenido"] = self.edit_content.toPlainText().strip()
+        super().accept()
+
+class HeaderExportDialog(QDialog):
+    """Diálogo para configurar el formato y la opacidad antes de generar el PDF de la cabecera."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Configuración de Exportación PDF")
+        self.setMinimumWidth(350)
+        self.format_val = "letter"
+        self.lightness = 0.0
+        self._setup_ui()
+
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        
+        # Formato de página
+        group_format = QGroupBox("Formato de Página")
+        form_format = QFormLayout(group_format)
+        self.combo_format = QComboBox()
+        self.combo_format.addItem("Carta (Letter - 215.9x279.4 mm)", "letter")
+        self.combo_format.addItem("A4 (Estándar - 210x297 mm)", "a4")
+        self.combo_format.addItem("Oficio (Legal - 215.9x355.6 mm)", "legal")
+        form_format.addRow("Tamaño:", self.combo_format)
+        layout.addWidget(group_format)
+        
+        # Opacidad / Brillo
+        group_lightness = QGroupBox("Estilo de Portada")
+        v_lightness = QVBoxLayout(group_lightness)
+        self.slider_lightness = QSlider(Qt.Orientation.Horizontal)
+        self.slider_lightness.setRange(0, 100)
+        self.slider_lightness.setValue(0)
+        self.slider_lightness.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.slider_lightness.setTickInterval(10)
+        v_lightness.addWidget(QLabel("Aclarar barra de título:"))
+        v_lightness.addWidget(self.slider_lightness)
+        layout.addWidget(group_lightness)
+        
+        # Botones
+        btn_layout = QHBoxLayout()
+        btn_cancel = QPushButton("Cancelar")
+        btn_cancel.clicked.connect(self.reject)
+        btn_generate = QPushButton("Generar")
+        btn_generate.setDefault(True)
+        btn_generate.clicked.connect(self.accept)
+        btn_layout.addStretch()
+        btn_layout.addWidget(btn_cancel)
+        btn_layout.addWidget(btn_generate)
+        
+        layout.addLayout(btn_layout)
+
+    def accept(self):
+        self.format_val = self.combo_format.currentData()
+        self.lightness = self.slider_lightness.value() / 100.0
+        super().accept()

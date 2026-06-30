@@ -1,14 +1,14 @@
-# 📸 ThermalCam Analyzer v1.2
+# 📸 ThermalCam Analyzer v1.4
 
 ![ThermalCam Analyzer Screenshot](screenshot.png)
 
 **ThermalCam Analyzer** es un software profesional de escritorio, multiplataforma, desarrollado en Python y PyQt6, diseñado específicamente para la decodificación, visualización interactiva, análisis térmico cuantitativo y mejora de resolución por Inteligencia Artificial (Súper-Resolución) de imágenes capturadas con cámaras termográficas (como la serie **Mastfuyi** y compatibles).
 
-La **Versión 1.2** perfecciona el formato de proyecto `.tcp` multi-medición introduciendo una potente barra lateral izquierda con capacidades de arrastrar y soltar (Drag and Drop) para reordenar las mediciones del informe. Además, mejora el generador de informes PDF de alta fidelidad, la distribución de espacios, y ofrece controles avanzados como el ajuste de opacidad en cabeceras corporativas.
+La **Versión 1.4** introduce la capacidad de generar un documento PDF de "Cabecera de Proyecto" independiente, permitiendo crear portadas ejecutivas desvinculadas del reporte técnico completo, conservando los estilos corporativos premium. Todo esto manteniendo la robustez del contenedor `.tcp` multi-medición y sus funciones de calibración y análisis térmico.
 
 ---
 
-## 🚀 Características Principales (v1.2)
+## 🚀 Características Principales (v1.4)
 
 ### 1. 🔌 Decodificador Crudo BMP RGB565 (Mastfuyi)
 * **Compatibilidad Exclusiva**: Parser nativo de imágenes térmicas BMP Mastfuyi de 16-bits (con cabecera especial `BITMAPV3INFOHEADER` de 56 bytes). Resuelve el problema donde visores tradicionales, OpenCV o PIL fallan en leer el formato, arrojando imágenes distorsionadas o ruidosas.
@@ -38,9 +38,13 @@ La **Versión 1.2** perfecciona el formato de proyecto `.tcp` multi-medición in
 * **Ficha Técnica de Cámara**: Menú dedicado para registrar Marca, Modelo y Número de Serie de la cámara termográfica utilizada.
 * **Metadatos de Auditoría**: Permite ingresar Título, Autor, Cliente, Ubicación, y hasta dos Imágenes del Equipo analizado, almacenándolos directamente dentro del archivo de proyecto `.tcp`.
 * **Identificador de Auditoría**: Campo dedicado para registrar el número o código único del **"Informe:"**, facilitando la trazabilidad administrativa.
+
+### 7. 📄 Generación de Cabecera PDF Independiente
+* **Portada Ejecutiva**: Permite exportar un PDF que actúa como cabecera o portada del proyecto, incluyendo metadatos relevantes como Cliente, Informe, Proyecto, Autor/Analista, Fecha y Referencia.
+* **Control Visual Dinámico**: Antes de exportar, se permite elegir el tamaño de papel (Carta, A4, Oficio) y ajustar de forma fina la transparencia/opacidad del bloque superior de color para que coincida exactamente con la imagen de marca de su empresa.
 * **Observaciones del Proyecto**: Diálogo de texto multilínea para consignar las observaciones, alcances y comentarios generales de la inspección de manera global.
 
-### 7. 📄 Generador de Informes PDF de Alta Fidelidad
+### 8. 📄 Generador de Informes PDF de Alta Fidelidad
 * **Estructura Multicapa**: Reportes multipágina de diseño limpio con cabecera corporativa, logotipo dinámico, y datos técnicos de auditoría e instrumentos.
 * **Numeración Correlativa de Figuras**: Sistema dinámico que numera de forma consecutiva todas las figuras del reporte técnico (`Fig 1 : Imagen Termográfica`, `Fig 2 : Imagen Real`, `Fig 3 : Imagen con Super-resolución...`), evitando repeticiones y ofreciendo un informe formal.
 * **Páginas e Imágenes Snug**: Layout centrado con reordenamiento inteligente: la imagen térmica de alta resolución y las anotaciones comparten una página, mientras la tabla de temperatura y el histograma estadístico se imprimen siempre juntos en la siguiente.
