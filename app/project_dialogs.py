@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGroupBox,
     QLabel, QLineEdit, QDoubleSpinBox, QPushButton,
     QFileDialog, QFormLayout, QToolButton, QDateEdit, QTimeEdit,
-    QTextEdit, QListWidget, QSplitter, QWidget, QComboBox, QSlider
+    QTextEdit, QListWidget, QSplitter, QWidget, QComboBox, QSlider, QCheckBox
 )
 
 
@@ -121,6 +121,17 @@ class ProjectInfoDialog(QDialog):
         equip_layout2.addWidget(btn_equip2)
         form.addRow("Imagen Equipo 2:", equip_layout2)
 
+        # Firma del Autor/Analista
+        sig_layout = QHBoxLayout()
+        self.edit_sig = QLineEdit(self.info.get("signature_path", ""))
+        self.edit_sig.setPlaceholderText("Imagen de firma del autor (opcional)")
+        btn_sig = QToolButton()
+        btn_sig.setText("...")
+        btn_sig.clicked.connect(lambda: self._browse_file(self.edit_sig, "Seleccionar Firma del Autor"))
+        sig_layout.addWidget(self.edit_sig)
+        sig_layout.addWidget(btn_sig)
+        form.addRow("Firma Autor:", sig_layout)
+
         layout.addWidget(info_group)
 
         # Botones
@@ -165,6 +176,7 @@ class ProjectInfoDialog(QDialog):
         self.info["logo_path"] = self.edit_logo.text()
         self.info["equipment_image_path"] = self.edit_equip.text()
         self.info["equipment_image_path2"] = self.edit_equip2.text()
+        self.info["signature_path"] = self.edit_sig.text()
 
         self.accept()
 
@@ -458,12 +470,14 @@ class ProjectHeaderDialog(QDialog):
 
 class HeaderExportDialog(QDialog):
     """Diálogo para configurar el formato y la opacidad antes de generar el PDF de la cabecera."""
-    def __init__(self, parent=None):
+    def __init__(self, project_info: dict, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Configuración de Exportación PDF")
         self.setMinimumWidth(350)
+        self._project_info = project_info
         self.format_val = "letter"
         self.lightness = 0.0
+        self.show_signature = False
         self._setup_ui()
 
     def _setup_ui(self):
@@ -476,6 +490,12 @@ class HeaderExportDialog(QDialog):
         self.combo_format.addItem("Carta (Letter - 215.9x279.4 mm)", "letter")
         self.combo_format.addItem("A4 (Estándar - 210x297 mm)", "a4")
         self.combo_format.addItem("Oficio (Legal - 215.9x355.6 mm)", "legal")
+        
+        saved_format = self._project_info.get("header_export_format", "letter")
+        idx = self.combo_format.findData(saved_format)
+        if idx >= 0:
+            self.combo_format.setCurrentIndex(idx)
+            
         form_format.addRow("Tamaño:", self.combo_format)
         layout.addWidget(group_format)
         
@@ -484,12 +504,28 @@ class HeaderExportDialog(QDialog):
         v_lightness = QVBoxLayout(group_lightness)
         self.slider_lightness = QSlider(Qt.Orientation.Horizontal)
         self.slider_lightness.setRange(0, 100)
-        self.slider_lightness.setValue(0)
+        
+        saved_lightness = self._project_info.get("header_export_lightness", 0)
+        self.slider_lightness.setValue(saved_lightness)
+        
         self.slider_lightness.setTickPosition(QSlider.TickPosition.TicksBelow)
         self.slider_lightness.setTickInterval(10)
         v_lightness.addWidget(QLabel("Aclarar barra de título:"))
         v_lightness.addWidget(self.slider_lightness)
         layout.addWidget(group_lightness)
+        
+        # Firma
+        group_style = QGroupBox("Opciones Adicionales")
+        v_style = QVBoxLayout(group_style)
+        self.chk_signature = QCheckBox("Incluir firma del analista en la cabecera")
+        
+        # Por defecto marcado si hay una firma configurada o lo que se guardó
+        has_signature_path = bool(self._project_info.get("signature_path"))
+        saved_signature = self._project_info.get("header_export_signature", has_signature_path)
+        self.chk_signature.setChecked(saved_signature)
+        
+        v_style.addWidget(self.chk_signature)
+        layout.addWidget(group_style)
         
         # Botones
         btn_layout = QHBoxLayout()
@@ -507,4 +543,10 @@ class HeaderExportDialog(QDialog):
     def accept(self):
         self.format_val = self.combo_format.currentData()
         self.lightness = self.slider_lightness.value() / 100.0
+        self.show_signature = self.chk_signature.isChecked()
+        
+        # Guardar en project_info para persistencia
+        self._project_info["header_export_format"] = self.format_val
+        self._project_info["header_export_lightness"] = self.slider_lightness.value()
+        self._project_info["header_export_signature"] = self.show_signature
         super().accept()

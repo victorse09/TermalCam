@@ -1,14 +1,14 @@
-# 📸 ThermalCam Analyzer v1.4
+# 📸 ThermalCam Analyzer v1.5
 
 ![ThermalCam Analyzer Screenshot](screenshot.png)
 
 **ThermalCam Analyzer** es un software profesional de escritorio, multiplataforma, desarrollado en Python y PyQt6, diseñado específicamente para la decodificación, visualización interactiva, análisis térmico cuantitativo y mejora de resolución por Inteligencia Artificial (Súper-Resolución) de imágenes capturadas con cámaras termográficas (como la serie **Mastfuyi** y compatibles).
 
-La **Versión 1.4** introduce la capacidad de generar un documento PDF de "Cabecera de Proyecto" independiente, permitiendo crear portadas ejecutivas desvinculadas del reporte técnico completo, conservando los estilos corporativos premium. Todo esto manteniendo la robustez del contenedor `.tcp` multi-medición y sus funciones de calibración y análisis térmico.
+La **Versión 1.5** introduce la capacidad de asociar una imagen de firma del autor/analista al proyecto, almacenarla de forma segura dentro del archivo comprimido `.tcp`, e incrustarla en la última página del informe técnico o en el documento de cabecera. Adicionalmente, implementa una barra deslizadora para regular la compresión y escala de resolución de las fotos reales, logrando reportes sumamente ligeros aptos para envío por correo electrónico sin descuadrar la maquetación.
 
 ---
 
-## 🚀 Características Principales (v1.4)
+## 🚀 Características Principales (v1.5)
 
 ### 1. 🔌 Decodificador Crudo BMP RGB565 (Mastfuyi)
 * **Compatibilidad Exclusiva**: Parser nativo de imágenes térmicas BMP Mastfuyi de 16-bits (con cabecera especial `BITMAPV3INFOHEADER` de 56 bytes). Resuelve el problema donde visores tradicionales, OpenCV o PIL fallan en leer el formato, arrojando imágenes distorsionadas o ruidosas.
@@ -53,6 +53,11 @@ La **Versión 1.4** introduce la capacidad de generar un documento PDF de "Cabec
 * **Fotos del Equipo en Portada**: Espacio dedicado para agregar opcionalmente hasta dos fotografías ópticas generales del equipo bajo análisis en la primera página, con autoajuste de diseño.
 * **Tabla de Mediciones**: Generación automática de tablas que resumen las lecturas de los puntos marcados (`P1`, `P2`, etc.) con sus respectivas temperaturas, emisividad y observaciones del inspector.
 * **Codificación Robusta**: Compatibilidad total con la codificación de fuentes en PDF (evitando caídas por caracteres no estándar).
+
+### 9. 🖋️ Firma del Analista y Compresión de Imágenes
+* **Firma Empaquetada**: Campo dedicado en Información de Proyecto para cargar la imagen de firma del analista. Esta firma se guarda en el contenedor `.tcp` (como `project_signature.png`) de forma transparente y portable.
+* **Firmado de Informes**: Opción en diálogos de exportación general y de cabecera para firmar el documento. La firma se inserta automáticamente en la esquina inferior derecha de la última página (o en la cabecera), adaptando su tamaño de forma inteligente para no superar el ancho del texto `Analista - [Nombre del Analista]`.
+* **Compresión Dinámica de Fotos**: Barra deslizadora interactiva de 0% a 90% de nivel de compresión. Permite reducir proporcionalmente la resolución y calidad de compresión JPEG de las fotos ópticas reales integradas, reduciendo dramáticamente el peso del PDF final sin afectar la disposición geométrica del informe.
 
 ---
 

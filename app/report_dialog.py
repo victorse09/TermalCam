@@ -93,6 +93,13 @@ class ReportDialog(QDialog):
         self.chk_histogram.setChecked(True)
         content_layout.addWidget(self.chk_histogram)
 
+        self.chk_signature = QCheckBox("Incluir firma del analista en la última página")
+        # Marcar por defecto si hay una firma cargada en el proyecto o el valor guardado
+        has_signature_path = bool(self._project_info.get("signature_path"))
+        saved_signature = self._project_info.get("report_signature", has_signature_path)
+        self.chk_signature.setChecked(saved_signature)
+        content_layout.addWidget(self.chk_signature)
+
         layout.addWidget(content_group)
 
         # 3. Formato de Página
@@ -109,6 +116,12 @@ class ReportDialog(QDialog):
         self.combo_format.addItem("Carta (Letter - 215.9x279.4 mm)", "letter")
         self.combo_format.addItem("A4 (Estándar - 210x297 mm)", "a4")
         self.combo_format.addItem("Oficio (Legal - 215.9x355.6 mm)", "legal")
+        
+        saved_format = self._project_info.get("report_format", "letter")
+        idx = self.combo_format.findData(saved_format)
+        if idx >= 0:
+            self.combo_format.setCurrentIndex(idx)
+            
         row_paper.addWidget(self.combo_format)
         format_layout.addLayout(row_paper)
 
@@ -128,6 +141,38 @@ class ReportDialog(QDialog):
         format_layout.addLayout(row_slider)
         
         layout.addWidget(format_group)
+
+        # 3.5. Compresión de Imágenes
+        compression_group = QGroupBox("Compresión de Imágenes")
+        comp_layout = QVBoxLayout(compression_group)
+        
+        row_comp = QHBoxLayout()
+        row_comp.setContentsMargins(10, 8, 10, 8)
+        lbl_comp = QLabel("Compresión de fotos reales:")
+        lbl_comp.setStyleSheet("font-weight: bold; color: #a0a0b0;")
+        row_comp.addWidget(lbl_comp)
+        
+        self.slider_compression = QSlider(Qt.Orientation.Horizontal)
+        self.slider_compression.setRange(0, 90)
+        
+        saved_compression = self._project_info.get("report_real_image_compression", 0)
+        self.slider_compression.setValue(saved_compression)
+        
+        self.slider_compression.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.slider_compression.setTickInterval(10)
+        row_comp.addWidget(self.slider_compression)
+        comp_layout.addLayout(row_comp)
+        
+        self.lbl_compression_val = QLabel("Sin compresión (Original)")
+        self.lbl_compression_val.setStyleSheet("color: #ff6b35; font-style: italic; margin-left: 10px; font-weight: bold;")
+        comp_layout.addWidget(self.lbl_compression_val)
+        
+        # Actualizar etiqueta inicial según valor guardado
+        self._update_compression_label(saved_compression)
+        
+        self.slider_compression.valueChanged.connect(self._update_compression_label)
+        
+        layout.addWidget(compression_group)
 
         # Botones de Acción
         btn_layout = QHBoxLayout()
@@ -178,6 +223,9 @@ class ReportDialog(QDialog):
             self._build_pdf(filepath, self.combo_format.currentData(), lightness_factor)
             
             self._project_info["report_header_lightness"] = self.slider_header_lightness.value()
+            self._project_info["report_format"] = self.combo_format.currentData()
+            self._project_info["report_real_image_compression"] = self.slider_compression.value()
+            self._project_info["report_signature"] = self.chk_signature.isChecked()
             
             QMessageBox.information(
                 self, "Éxito",
@@ -194,7 +242,7 @@ class ReportDialog(QDialog):
         from PIL import Image
 
         class ThermalReportPDF(FPDF):
-            def __init__(self, project_info: dict, version_str: str = "v1.4", has_cover: bool = True, format_val: str = "a4"):
+            def __init__(self, project_info: dict, version_str: str = "v1.5", has_cover: bool = True, format_val: str = "a4"):
                 super().__init__(format=format_val)
                 self._project_info = project_info
                 self.version_str = version_str
@@ -214,7 +262,7 @@ class ReportDialog(QDialog):
                 # Número de página sin fecha
                 self.cell(0, 5, f"Página {self.page_no()}", align='R')
 
-        pdf = ThermalReportPDF(self._project_info, version_str="v1.4", has_cover=self.chk_cover.isChecked(), format_val=format_str)
+        pdf = ThermalReportPDF(self._project_info, version_str="v1.5", has_cover=self.chk_cover.isChecked(), format_val=format_str)
         pdf.set_auto_page_break(auto=True, margin=15)
         
         # Archivos temporales para limpiar al final
@@ -507,6 +555,16 @@ class ReportDialog(QDialog):
             has_orig = self.chk_original.isChecked()
             has_real = self.chk_real_img.isChecked() and m["real_image_path"] and os.path.exists(m["real_image_path"])
 
+            # Cargar imagen real de la medición si corresponde aplicando compresión si está activa
+            real_image_to_use = m["real_image_path"]
+            if has_real and self.slider_compression.value() > 0:
+                try:
+                    compressed_path = self._compress_real_image(real_image_to_use, self.slider_compression.value(), idx)
+                    real_image_to_use = compressed_path
+                    tmp_files.append(compressed_path)
+                except Exception as e:
+                    print(f"Error al comprimir foto real {idx}: {e}")
+
             if has_orig or has_real:
                 pdf.set_font("Helvetica", "B", 11)
                 pdf.set_text_color(255, 107, 53)
@@ -539,7 +597,7 @@ class ReportDialog(QDialog):
                         if real_h > 75:
                             real_h = 75
                         
-                        pdf.image(m["real_image_path"], x=x_pos, w=img_w, h=real_h)
+                        pdf.image(real_image_to_use, x=x_pos, w=img_w, h=real_h)
                         pdf.ln(1.5) # FPDF2 ya avanzó y por el alto, solo bajamos 1.5mm para el texto
                         pdf.set_font("Helvetica", "I", 9)
                         pdf.set_text_color(100, 100, 110)
@@ -567,7 +625,7 @@ class ReportDialog(QDialog):
                             with Image.open(m["real_image_path"]) as img:
                                 w, h = img.size
                             real_h = img_w * h / w
-                            pdf.image(m["real_image_path"], x=x_pos, w=img_w, h=real_h)
+                            pdf.image(real_image_to_use, x=x_pos, w=img_w, h=real_h)
                             pdf.ln(1.5) # FPDF2 ya avanzó y por el alto, solo bajamos 1.5mm para el texto
                             pdf.set_font("Helvetica", "I", 9)
                             pdf.set_text_color(100, 100, 110)
@@ -728,6 +786,49 @@ class ReportDialog(QDialog):
                 pdf.multi_cell(0, 6, obs_text)
                 pdf.ln(4)
 
+        # ── 3.5. FIRMA DEL ANALISTA ─────────────────────────────────────────
+        if self.chk_signature.isChecked():
+            sig_path = self._project_info.get("signature_path", "")
+            if sig_path and os.path.exists(sig_path):
+                author_name = self._project_info.get("author", "---")
+                label_text = f"Analista - {author_name}"
+                
+                pdf.set_font("Helvetica", "B", 9)
+                text_w = pdf.get_string_width(label_text)
+                
+                # Ancho de firma no supera el ancho del texto de la firma (entre 35 y 55 mm)
+                sig_w = min(55, max(35, text_w))
+                
+                # Si no hay suficiente espacio en la página actual para la firma
+                if pdf.get_y() > pdf.h - 55:
+                    pdf.add_page()
+                    self._write_page_header(pdf, "Cierre de Informe", lightness)
+                
+                sig_x = pdf.w - 15 - sig_w
+                sig_y = pdf.h - 45
+                
+                try:
+                    with Image.open(sig_path) as sig_img:
+                        sw, sh = sig_img.size
+                    aspect = sh / sw
+                    actual_h = sig_w * aspect
+                    if actual_h > 20: # limitar alto a 20mm
+                        actual_h = 20
+                        actual_w = actual_h / aspect
+                        sig_x_adjusted = sig_x + (sig_w - actual_w) / 2
+                    else:
+                        actual_w = sig_w
+                        sig_x_adjusted = sig_x
+                    
+                    pdf.image(sig_path, x=sig_x_adjusted, y=sig_y, w=actual_w, h=actual_h)
+                    
+                    pdf.set_y(sig_y + actual_h + 2)
+                    pdf.set_x(pdf.w - 15 - text_w)
+                    pdf.set_text_color(50, 50, 60)
+                    pdf.cell(text_w, 5, label_text, align='C')
+                except Exception as e:
+                    print(f"Error al dibujar la firma en PDF: {e}")
+
         # ── 4. EXPORTAR PDF FINAL ───────────────────────────────────────────
         pdf.output(filepath)
 
@@ -768,6 +869,49 @@ class ReportDialog(QDialog):
         pdf.cell(0, 8, section_title, align='R')
         pdf.set_y(28)
         pdf.ln(2)
+
+    def _update_compression_label(self, val):
+        if val == 0:
+            self.lbl_compression_val.setText("Sin compresión (Original)")
+        elif val <= 30:
+            self.lbl_compression_val.setText(f"{val}% (Compresión baja - Buena calidad)")
+        elif val <= 60:
+            self.lbl_compression_val.setText(f"{val}% (Compresión media - Tamaño óptimo)")
+        else:
+            self.lbl_compression_val.setText(f"{val}% (Compresión alta - Tamaño mínimo)")
+
+    def _compress_real_image(self, original_path: str, compression_pct: int, idx: int) -> str:
+        from PIL import Image
+        tmp_path = os.path.join(tempfile.gettempdir(), f"compressed_real_{idx}_{datetime.now().strftime('%H%M%S')}.jpg")
+        
+        with Image.open(original_path) as img:
+            # Escala de resolución = (100 - compression_pct) / 100
+            scale = (100 - compression_pct) / 100.0
+            orig_w, orig_h = img.size
+            new_w = max(100, int(orig_w * scale))
+            new_h = max(100, int(orig_h * scale))
+            
+            try:
+                resample_method = Image.Resampling.LANCZOS
+            except AttributeError:
+                resample_method = Image.ANTIALIAS
+                
+            resized_img = img.resize((new_w, new_h), resample_method)
+            
+            # Guardar como JPEG con calidad variable
+            quality = max(20, int(95 - compression_pct * 0.8))
+            
+            # Si tiene transparencia, convertir a fondo blanco
+            if resized_img.mode in ("RGBA", "LA") or (resized_img.mode == "P" and "transparency" in resized_img.info):
+                background = Image.new("RGB", resized_img.size, (255, 255, 255))
+                background.paste(resized_img, mask=resized_img.split()[3] if resized_img.mode == "RGBA" else None)
+                resized_img = background
+            elif resized_img.mode != "RGB":
+                resized_img = resized_img.convert("RGB")
+                
+            resized_img.save(tmp_path, "JPEG", quality=quality)
+            
+        return tmp_path
 
     def _save_temp_image(self, image_rgb: np.ndarray, prefix: str) -> str:
         """Guarda un array de imagen temporal como archivo PNG para insertar en el PDF."""

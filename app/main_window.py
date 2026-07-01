@@ -82,6 +82,7 @@ class MainWindow(QMainWindow):
             "ambient_temp": 20.0,
             "logo_path": "",
             "equipment_image_path": "",
+            "signature_path": "",
             "general_observations": "",
             "report_number": ""
         }
@@ -868,7 +869,7 @@ class MainWindow(QMainWindow):
     def _show_instructions(self):
         """Muestra las instrucciones de uso del programa."""
         instructions_text = (
-            "<h3>Guía de Uso de ThermalCam Analyzer v1.4</h3>"
+            "<h3>Guía de Uso de ThermalCam Analyzer v1.5</h3>"
             "<ol>"
             "<li><b>Proyectos y Mediciones:</b> Use el botón 📂 para abrir un proyecto (.tcp) o una imagen térmica (BMP). Añada más imágenes al proyecto actual desde <i>Medición -> Nueva Medición...</i> (<code>Ctrl+Shift+N</code>).</li>"
             "<li><b>Navegar y Reordenar:</b> Utilice los botones Siguiente/Anterior para moverse entre las mediciones activas. En la barra lateral izquierda (con ícono de panel), puede arrastrar y soltar las miniaturas para reordenar el informe.</li>"
@@ -913,7 +914,7 @@ class MainWindow(QMainWindow):
         title_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #ff6b35; font-family: 'Outfit', 'Inter';")
         text_layout.addWidget(title_label)
         
-        version_label = QLabel("Versión 1.4")
+        version_label = QLabel("Versión 1.5")
         version_label.setStyleSheet("font-size: 11px; color: #a0a0b0; font-family: 'Inter';")
         text_layout.addWidget(version_label)
         
@@ -1003,7 +1004,7 @@ class MainWindow(QMainWindow):
 
     def _generate_header_pdf(self):
         """Genera el documento PDF de la cabecera independiente."""
-        export_dialog = HeaderExportDialog(self)
+        export_dialog = HeaderExportDialog(self._project_info, self)
         if not export_dialog.exec():
             return
             
@@ -1024,7 +1025,7 @@ class MainWindow(QMainWindow):
                 if not self._header_info.get("fecha") and self._project_info.get("date"):
                     self._header_info["fecha"] = self._project_info["date"]
 
-                generate_header_pdf(filepath, self._project_info, self._header_info, lightness=lightness, format_val=format_val)
+                generate_header_pdf(filepath, self._project_info, self._header_info, lightness=lightness, format_val=format_val, show_signature=export_dialog.show_signature)
                 QMessageBox.information(self, "Éxito", f"Cabecera de informe guardada en:\n{filepath}")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Error al generar la cabecera PDF:\n{str(e)}")
@@ -1386,6 +1387,7 @@ class MainWindow(QMainWindow):
             "logo_path": "",
             "equipment_image_path": "",
             "equipment_image_path2": "",
+            "signature_path": "",
             "general_observations": "",
             "report_number": ""
         }
@@ -1499,6 +1501,11 @@ class MainWindow(QMainWindow):
                 equip_name2 = "project_equipment2.png"
                 saved_project_info["equipment_image_path2"] = equip_name2
 
+            sig_name = ""
+            if saved_project_info.get("signature_path") and os.path.exists(saved_project_info["signature_path"]):
+                sig_name = "project_signature.png"
+                saved_project_info["signature_path"] = sig_name
+
             measurements_meta = []
             
             # Guardamos los archivos a escribir en un dict para procesar después de cerrar el JSON
@@ -1607,6 +1614,10 @@ class MainWindow(QMainWindow):
                 if equip_name2 and os.path.exists(self._project_info.get("equipment_image_path2", "")):
                     zip_proj.write(self._project_info["equipment_image_path2"], equip_name2)
 
+                # Escribir firma si existe
+                if sig_name and os.path.exists(self._project_info.get("signature_path", "")):
+                    zip_proj.write(self._project_info["signature_path"], sig_name)
+
                 # Escribir todas las imágenes de mediciones
                 for temp_path, arcname in files_to_zip:
                     zip_proj.write(temp_path, arcname)
@@ -1667,6 +1678,7 @@ class MainWindow(QMainWindow):
                     "logo_path": "",
                     "equipment_image_path": "",
                     "equipment_image_path2": "",
+                    "signature_path": "",
                     "general_observations": "",
                     "report_number": ""
                 }
@@ -1787,6 +1799,9 @@ class MainWindow(QMainWindow):
                 
                 if self._project_info.get("equipment_image_path2") == "project_equipment2.png":
                     self._project_info["equipment_image_path2"] = os.path.join(temp_dir, "project_equipment2.png")
+
+                if self._project_info.get("signature_path") == "project_signature.png":
+                    self._project_info["signature_path"] = os.path.join(temp_dir, "project_signature.png")
 
                 self._measurements = []
                 for m_meta in metadata.get("measurements", []):
