@@ -983,12 +983,20 @@ class MainWindow(QMainWindow):
 
     # ── Métodos de Proyecto e Instrumento ──────────────────
 
+    def _update_window_title(self):
+        """Actualiza el título de la ventana principal."""
+        if self._current_project_file:
+            self.setWindowTitle(f"ThermalCam Analyzer — {os.path.basename(self._current_project_file)}")
+        else:
+            self.setWindowTitle("ThermalCam Analyzer — Análisis de Imágenes Térmicas")
+
     def _show_project_info_dialog(self):
         """Muestra el diálogo para editar la información del proyecto."""
         dialog = ProjectInfoDialog(self._project_info, self)
         if dialog.exec():
             self._project_info = dialog.info
             self._update_window_title()
+            self.statusBar().showMessage("✅ Información de proyecto actualizada", 3000)
 
     def _show_header_info_dialog(self):
         """Abre el diálogo para configurar la información de la cabecera del proyecto."""
